@@ -1,20 +1,37 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Scorecard Evento</title>
+<title>Scorecard GO / NO-GO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
-.card {background:#1e293b; padding:20px; border-radius:10px;}
+h1 {color:#38bdf8;}
+
+.card {background:#1e293b; padding:20px; border-radius:10px; margin-bottom:20px;}
+
 input, select {
-  width:100%; padding:10px; margin:6px 0;
-  border-radius:6px; border:none;
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+  border-radius:6px;
+  border:none;
 }
-button {padding:10px; background:#38bdf8; border:none; border-radius:6px;}
-.kpi {margin-top:10px; font-size:18px;}
+
+button {
+  padding:12px;
+  background:#38bdf8;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  width:100%;
+  margin-top:10px;
+}
+
+.kpi {font-size:18px; margin:6px 0;}
 .green {color:#22c55e;}
 .red {color:#ef4444;}
+.yellow {color:#facc15;}
 </style>
 </head>
 
@@ -22,53 +39,193 @@ button {padding:10px; background:#38bdf8; border:none; border-radius:6px;}
 
 <h1>📊 Scorecard GO / NO-GO</h1>
 
+<!-- ========================= -->
+<!-- DATOS GENERALES -->
+<!-- ========================= -->
+
 <div class="card">
+
+<h2>Datos del Evento</h2>
 
 <input id="evento" placeholder="Nombre del evento">
 
-<h3>Evaluación (0-20 cada uno)</h3>
+<select id="tipo">
+<option>Feria</option>
+<option>Congreso</option>
+<option>Día de Campo</option>
+<option>Finca demostrativa</option>
+</select>
 
-<input id="alineacion" placeholder="Alineación estratégica">
-<input id="audiencia" placeholder="Audiencia calificada">
-<input id="inventario" placeholder="Inventario disponible">
-<input id="timing" placeholder="Timing comercial">
-<input id="roi" placeholder="ROI esperado">
-<input id="seguimiento" placeholder="Capacidad seguimiento">
+<input id="cultivo" placeholder="Cultivo">
+<input id="zona" placeholder="Zona">
+<input id="publico" placeholder="Público objetivo">
 
-<button onclick="calcular()">Evaluar</button>
+<input id="objetivo" placeholder="Objetivo comercial (ej. 60 leads, $80k pipeline)">
 
-<div id="resultado"></div>
+<select id="formato">
+<option>Stand</option>
+<option>Lobby estratégico</option>
+<option>Conferencia técnica</option>
+<option>Visita privada</option>
+</select>
 
 </div>
+
+<!-- ========================= -->
+<!-- EVALUACIÓN -->
+<!-- ========================= -->
+
+<div class="card">
+
+<h2>Matriz de Evaluación (0-20)</h2>
+
+<input id="alineacion" placeholder="Alineación estratégica (0-20)">
+<input id="audiencia" placeholder="Audiencia calificada (0-20)">
+<input id="inventario" placeholder="Inventario disponible (0-20)">
+<input id="timing" placeholder="Timing comercial (0-20)">
+<input id="roiScore" placeholder="ROI esperado (0-20)">
+<input id="seguimiento" placeholder="Capacidad seguimiento (0-20)">
+
+</div>
+
+<!-- ========================= -->
+<!-- COSTOS -->
+<!-- ========================= -->
+
+<div class="card">
+
+<h2>Costeo del Evento</h2>
+
+<input id="stand" placeholder="Stand / renta $">
+<input id="viaticos" placeholder="Viáticos $">
+<input id="muestras" placeholder="Muestras $">
+
+<input id="horasTecnico" placeholder="Horas técnico">
+<input id="costoHoraTecnico" placeholder="Costo hora técnico">
+
+<input id="horasComercial" placeholder="Horas comercial">
+<input id="costoHoraComercial" placeholder="Costo hora comercial">
+
+<input id="costoOportunidad" placeholder="Costo oportunidad $">
+<input id="seguimientoCosto" placeholder="Seguimiento post-evento $">
+<input id="captacion" placeholder="Captación / marketing $">
+
+</div>
+
+<!-- ========================= -->
+<!-- INGRESOS -->
+<!-- ========================= -->
+
+<div class="card">
+
+<h2>Proyección Comercial</h2>
+
+<input id="ventas" placeholder="Ventas atribuibles esperadas $">
+
+</div>
+
+<button onclick="calcular()">🚀 Evaluar Evento</button>
+
+<div id="resultado"></div>
 
 <script>
 
 function calcular(){
 
-let total =
+// ===== SCORE =====
+
+let totalScore =
 (+alineacion.value||0) +
 (+audiencia.value||0) +
 (+inventario.value||0) +
 (+timing.value||0) +
-(+roi.value||0) +
+(+roiScore.value||0) +
 (+seguimiento.value||0);
 
-let decision = total >= 75 ? "GO ✅" : "NO GO ❌";
+// ===== COSTO TOTAL =====
 
-let clase = total >= 75 ? "green" : "red";
+let costo =
+(+stand.value||0) +
+(+viaticos.value||0) +
+(+muestras.value||0) +
+((+horasTecnico.value||0) * (+costoHoraTecnico.value||0)) +
+((+horasComercial.value||0) * (+costoHoraComercial.value||0)) +
+(+costoOportunidad.value||0) +
+(+seguimientoCosto.value||0) +
+(+captacion.value||0);
+
+// ===== INGRESO =====
+
+let ventasVal = (+ventas.value||0);
+
+// ===== ROI =====
+
+let roi = costo ? (ventasVal - costo) / costo : 0;
+
+// ===== REGLAS =====
+
+let decision = totalScore >= 75 ? "GO ✅" : "NO GO ❌";
+
+let colorScore = totalScore >= 75 ? "green" : "red";
+
+let roiMin = 0.3;
+
+let tipoEvento = tipo.value;
+
+if(tipoEvento === "Finca demostrativa") roiMin = 0.4;
+
+let roiOk = roi >= roiMin;
+
+// ===== RESULTADO =====
 
 resultado.innerHTML = `
-<div class="kpi">Score: ${total}/100</div>
-<div class="kpi ${clase}"><b>${decision}</b></div>
+
+<div class="card">
+
+<h2>Resultado</h2>
+
+<div class="kpi">📊 Score: ${totalScore}/100</div>
+<div class="kpi ${colorScore}"><b>${decision}</b></div>
+
+<hr>
+
+<div class="kpi">💸 Costo total: $${costo.toFixed(2)}</div>
+<div class="kpi">💰 Ventas esperadas: $${ventasVal.toFixed(2)}</div>
+
+<div class="kpi ${roiOk?'green':'red'}">
+ROI: ${(roi*100).toFixed(2)}%
+</div>
+
+<div class="kpi">
+ROI mínimo requerido: ${(roiMin*100)}%
+</div>
+
+<hr>
+
+<div class="kpi ${roiOk?'green':'red'}">
+${roiOk ? "✔ ROI cumple" : "❌ ROI no cumple"}
+</div>
+
+</div>
+
 `;
+
+// ===== GUARDAR =====
 
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
 eventos.push({
 id: Date.now(),
 evento: evento.value,
-score: total,
-decision
+tipo: tipoEvento,
+cultivo: cultivo.value,
+zona: zona.value,
+score: totalScore,
+roi,
+costo,
+ventas: ventasVal,
+decision,
+fecha: new Date().toLocaleString()
 });
 
 localStorage.setItem("eventos", JSON.stringify(eventos));
