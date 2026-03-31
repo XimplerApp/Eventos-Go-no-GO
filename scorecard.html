@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Scorecard Evento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
+.card {background:#1e293b; padding:20px; border-radius:10px;}
+input, select {
+  width:100%; padding:10px; margin:6px 0;
+  border-radius:6px; border:none;
+}
+button {padding:10px; background:#38bdf8; border:none; border-radius:6px;}
+.kpi {margin-top:10px; font-size:18px;}
+.green {color:#22c55e;}
+.red {color:#ef4444;}
+</style>
+</head>
+
+<body>
+
+<h1>📊 Scorecard GO / NO-GO</h1>
+
+<div class="card">
+
+<input id="evento" placeholder="Nombre del evento">
+
+<h3>Evaluación (0-20 cada uno)</h3>
+
+<input id="alineacion" placeholder="Alineación estratégica">
+<input id="audiencia" placeholder="Audiencia calificada">
+<input id="inventario" placeholder="Inventario disponible">
+<input id="timing" placeholder="Timing comercial">
+<input id="roi" placeholder="ROI esperado">
+<input id="seguimiento" placeholder="Capacidad seguimiento">
+
+<button onclick="calcular()">Evaluar</button>
+
+<div id="resultado"></div>
+
+</div>
+
+<script>
+
+function calcular(){
+
+let total =
+(+alineacion.value||0) +
+(+audiencia.value||0) +
+(+inventario.value||0) +
+(+timing.value||0) +
+(+roi.value||0) +
+(+seguimiento.value||0);
+
+let decision = total >= 75 ? "GO ✅" : "NO GO ❌";
+
+let clase = total >= 75 ? "green" : "red";
+
+resultado.innerHTML = `
+<div class="kpi">Score: ${total}/100</div>
+<div class="kpi ${clase}"><b>${decision}</b></div>
+`;
+
+let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+
+eventos.push({
+id: Date.now(),
+evento: evento.value,
+score: total,
+decision
+});
+
+localStorage.setItem("eventos", JSON.stringify(eventos));
+
+}
+
+</script>
+
+</body>
+</html>
