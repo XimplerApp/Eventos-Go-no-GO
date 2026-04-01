@@ -137,7 +137,7 @@ function cargarEventos(){
         let texto = `${e.evento} | ${e.cultivo} | ${e.zona}`;
 
         select.innerHTML += `
-        <option value="${e.id}">
+        <option value="${e.id ? e.id : e.evento}">
         ${texto}
         </option>
         `;
@@ -149,12 +149,10 @@ function guardar(){
 
     let eventoId = document.getElementById("evento").value;
 
-    let eventoSeleccionado = eventos.find(e => String(e.id) === String(eventoId));
-
-    // fallback eventos viejos
-    if(!eventoSeleccionado){
-        eventoSeleccionado = eventos.find(e => e.evento === eventoId);
-    }
+    let eventoSeleccionado = eventos.find(e =>
+        String(e.id) === String(eventoId) ||
+        String(e.evento) === String(eventoId)
+    );
 
     let data = {
         id: Date.now(),
