@@ -39,7 +39,6 @@ button {
 
 <h1>📊 Scorecard GO / NO-GO</h1>
 
-<!-- DATOS -->
 <div class="card">
 <h2>Datos del Evento</h2>
 
@@ -66,42 +65,38 @@ button {
 </select>
 </div>
 
-<!-- SCORE -->
 <div class="card">
 <h2>Matriz de Evaluación</h2>
 
-<input id="alineacion" placeholder="Alineación (0-20)">
-<input id="audiencia" placeholder="Audiencia (0-20)">
-<input id="inventario" placeholder="Inventario (0-15)">
-<input id="timing" placeholder="Timing (0-15)">
-<input id="roiScore" placeholder="ROI esperado (0-20)">
-<input id="seguimiento" placeholder="Seguimiento (0-10)">
+<input id="alineacion">
+<input id="audiencia">
+<input id="inventario">
+<input id="timing">
+<input id="roiScore">
+<input id="seguimiento">
 </div>
 
-<!-- COSTOS -->
 <div class="card">
 <h2>Costeo</h2>
 
-<input id="stand" placeholder="Stand">
-<input id="viaticos" placeholder="Viáticos">
-<input id="muestras" placeholder="Muestras">
+<input id="stand">
+<input id="viaticos">
+<input id="muestras">
 
-<input id="horasTecnico" placeholder="Horas técnico">
-<input id="costoHoraTecnico" placeholder="Costo hora técnico">
+<input id="horasTecnico">
+<input id="costoHoraTecnico">
 
-<input id="horasComercial" placeholder="Horas comercial">
-<input id="costoHoraComercial" placeholder="Costo hora comercial">
+<input id="horasComercial">
+<input id="costoHoraComercial">
 
-<input id="costoOportunidad" placeholder="Costo oportunidad">
-<input id="seguimientoCosto" placeholder="Seguimiento">
-<input id="captacion" placeholder="Captación">
+<input id="costoOportunidad">
+<input id="seguimientoCosto">
+<input id="captacion">
 </div>
 
-<!-- INGRESOS -->
 <div class="card">
 <h2>Proyección</h2>
-
-<input id="ventas" placeholder="Ventas esperadas">
+<input id="ventas">
 </div>
 
 <button onclick="calcular()">🚀 Evaluar</button>
@@ -111,7 +106,6 @@ button {
 
 <script>
 
-// FUNCIÓN LIMPIA
 function num(id){
   let val = document.getElementById(id).value;
   if(!val) return 0;
@@ -120,7 +114,6 @@ function num(id){
 
 function calcular(){
 
-// ===== SCORE =====
 let alineacion = Math.min(num("alineacion"),20);
 let audiencia = Math.min(num("audiencia"),20);
 let inventario = Math.min(num("inventario"),15);
@@ -130,7 +123,6 @@ let seguimiento = Math.min(num("seguimiento"),10);
 
 let totalScore = alineacion + audiencia + inventario + timing + roiScore + seguimiento;
 
-// ===== COSTO =====
 let costo =
 num("stand") +
 num("viaticos") +
@@ -141,176 +133,73 @@ num("costoOportunidad") +
 num("seguimientoCosto") +
 num("captacion");
 
-// ===== INGRESOS =====
 let ventasVal = num("ventas");
 let leads = num("leads");
 
-// ===== ROI =====
 let roi = costo ? (ventasVal - costo) / costo : 0;
-
-// ===== CPL =====
 let cpl = leads ? costo / leads : 0;
 
-// ===== ROI mínimo =====
 let tipoEvento = tipo.value;
-let roiMin = 0.3;
-if(tipoEvento === "Finca demostrativa") roiMin = 0.4;
+let roiMin = tipoEvento === "Finca demostrativa" ? 0.4 : 0.3;
 
-// ===== DECISION =====
 let scoreOK = totalScore >= 75;
 let roiOK = roi >= roiMin;
 
-let decision = scoreOK ? "GO" : "NO GO";
-let colorScore = scoreOK ? "green" : "red";
-
-// ===== ALERTAS =====
 let alerta = "";
+if(ventasVal === 0) alerta = "Ventas en 0";
+else if(leads <= 0) alerta = "Sin leads";
+else if(cpl > 5000) alerta = "CPL alto";
 
-if(ventasVal === 0){
-  alerta = "Ventas en 0";
-}
-else if(leads <= 0){
-  alerta = "Sin leads";
-}
-else if(cpl > 5000){
-  alerta = "CPL alto";
-}
-else if((ventasVal / leads) > 1000000){
-  alerta = "Evento estratégico (alto valor)";
-}
-
-// ===== RESULTADO UI =====
 resultado.innerHTML = `
 <div class="card">
-
-<div class="kpi">
-Score: ${totalScore}/100 ${scoreOK ? "GO ✅" : "NO GO ❌"}
-</div>
-
-<div class="kpi">💸 Costo total: $${costo.toLocaleString()}</div>
-<div class="kpi">💰 Ventas esperadas: $${ventasVal.toLocaleString()}</div>
-
-<div class="kpi">
-ROI: ${(roi*100).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}%
-</div>
-
-<div class="kpi">
-ROI mínimo requerido: ${(roiMin*100)}%
-</div>
-
+<div class="kpi">Score: ${totalScore}/100 ${scoreOK ? "GO ✅" : "NO GO ❌"}</div>
+<div class="kpi">💸 $${costo.toLocaleString()}</div>
+<div class="kpi">💰 $${ventasVal.toLocaleString()}</div>
+<div class="kpi">ROI: ${(roi*100).toFixed(2)}%</div>
 <div class="kpi">📊 Leads: ${leads}</div>
-
-<div class="kpi">
-💰 CPL: $${cpl.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}
-</div>
-
-<div class="kpi">
-💵 Ticket por lead: $${leads ? (ventasVal/leads).toLocaleString() : 0}
-</div>
-
-<div class="kpi ${roiOK?'green':'red'}">
-${roiOK ? "✔ ROI cumple" : "❌ ROI no cumple"}
-</div>
-
-<div class="kpi yellow">
-${alerta ? "⚠️ " + alerta : ""}
-</div>
-
+<div class="kpi">💰 CPL: $${cpl.toLocaleString()}</div>
+<div class="kpi">💵 Ticket: $${leads ? (ventasVal/leads).toLocaleString() : 0}</div>
+<div class="kpi ${roiOK?'green':'red'}">${roiOK?"✔ ROI cumple":"❌ ROI no cumple"}</div>
+<div class="kpi yellow">${alerta}</div>
 </div>
 `;
 
-// ===== GUARDAR =====
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
 eventos.push({
 fecha: new Date().toLocaleString(),
 evento: evento.value,
-tipo: tipoEvento,
-cultivo: cultivo.value,
-zona: zona.value,
-publico: publico.value,
-objetivo: objetivo.value,
-formato: formato.value,
-
+tipo: tipo.value,
 score: totalScore,
-decision,
-
 ventas: ventasVal,
 costo,
 roi,
 leads,
 cpl,
-ticket: leads ? (ventasVal / leads) : 0,
-
-alineacion,
-audiencia,
-inventario,
-timing,
-roiScore,
-seguimiento
+ticket: leads ? (ventasVal / leads) : 0
 });
 
 localStorage.setItem("eventos", JSON.stringify(eventos));
-
 }
 
-// ===== EXPORTAR CSV =====
 function exportar(){
 
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+if(eventos.length === 0) return alert("No hay datos");
 
-if(eventos.length === 0){
-  alert("No hay datos");
-  return;
-}
-
-// ORDEN DEFINIDO (FUENTE DE VERDAD)
-let headers = [
-"fecha","evento","tipo","cultivo","zona","publico","objetivo","formato",
-"score","decision",
-"ventas","costo","roi","leads","cpl","ticket",
-"alineacion","audiencia","inventario","timing","roiScore","seguimiento"
-];
-
-// ENCABEZADOS
+let headers = ["fecha","evento","tipo","score","ventas","costo","roi","leads","cpl","ticket"];
 let csv = headers.join(",") + "\n";
 
-// FILAS
 eventos.forEach(e => {
 
 let row = headers.map(h => {
 
 let val = e[h];
 
-// ===== FORMATEOS =====
+if(h === "roi") val = (val*100).toFixed(2)+"%";
+else if(["ventas","costo","cpl","ticket"].includes(h)) val = Number(val).toLocaleString();
 
-// ROI → porcentaje
-if(h === "roi" && val !== undefined){
-  val = (val * 100).toLocaleString(undefined,{
-    minimumFractionDigits:2,
-    maximumFractionDigits:2
-  }) + "%";
-}
-
-// ticket → separador de miles
-  else if(h === "ticket"){
-  val = Number(val).toLocaleString();
-}
-
-// números grandes → separador de miles
-else if(
-  h === "ventas" ||
-  h === "costo" ||
-  h === "cpl"
-){
-  val = Number(val).toLocaleString();
-}
-
-// proteger formato CSV (muy importante)
-return `"${val ?? ""}"`;
-}
-
-return val ?? "";
+return `"${val}"`;
 
 });
 
@@ -318,15 +207,11 @@ csv += row.join(",") + "\n";
 
 });
 
-// DESCARGA
 let blob = new Blob([csv], { type: 'text/csv' });
-let url = URL.createObjectURL(blob);
-
 let a = document.createElement("a");
-a.href = url;
-a.download = "eventos_galera.csv";
+a.href = URL.createObjectURL(blob);
+a.download = "eventos.csv";
 a.click();
-
 }
 
 </script>
