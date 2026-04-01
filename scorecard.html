@@ -240,6 +240,7 @@ costo,
 roi,
 leads,
 cpl,
+ticket: leads ? (ventasVal / leads) : 0,
 
 alineacion,
 audiencia,
@@ -267,7 +268,7 @@ if(eventos.length === 0){
 let headers = [
 "fecha","evento","tipo","cultivo","zona","publico","objetivo","formato",
 "score","decision",
-"ventas","costo","roi","leads","cpl",
+"ventas","costo","roi","leads","cpl","ticket",
 "alineacion","audiencia","inventario","timing","roiScore","seguimiento"
 ];
 
@@ -281,9 +282,30 @@ let row = headers.map(h => {
 
 let val = e[h];
 
-// limpiar comas para evitar romper CSV
-if(typeof val === "string"){
-  val = val.replace(/,/g,"");
+// ===== FORMATEOS =====
+
+// ROI → porcentaje
+if(h === "roi" && val !== undefined){
+  val = (val * 100).toLocaleString(undefined,{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  }) + "%";
+}
+  
+  else if(h === "ticket"){
+  val = Number(val).toLocaleString();
+
+// números grandes → separador de miles
+else if(
+  h === "ventas" ||
+  h === "costo" ||
+  h === "cpl"
+){
+  val = Number(val).toLocaleString();
+}
+
+// proteger formato CSV (muy importante)
+return `"${val ?? ""}"`;
 }
 
 return val ?? "";
