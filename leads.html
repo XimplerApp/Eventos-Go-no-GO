@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Leads de Eventos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
+h1 {color:#38bdf8;}
+
+.card {background:#1e293b; padding:20px; border-radius:10px; margin-bottom:20px;}
+
+input, select {
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+    border-radius:6px;
+    border:none;
+}
+
+button {
+    padding:10px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.save {background:#22c55e;}
+.delete {background:#ef4444;}
+.export {background:#22c55e;}
+
+.kpi {font-size:18px; margin:5px 0;}
+.green {color:#22c55e;}
+.red {color:#ef4444;}
+.yellow {color:#facc15;}
+
+table {
+    width:100%;
+    border-collapse: collapse;
+    text-align:center;
+}
+
+th, td {
+    padding:10px;
+    border-bottom:1px solid #334155;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div style="display:flex; gap:10px; margin-bottom:20px;">
+  <a href="index.html"><button>📋 Ensayos</button></a>
+  <a href="bitacora.html"><button>📸 Bitácora</button></a>
+  <a href="resultados.html"><button>📊 Resultados</button></a>
+  <a href="pipeline.html"><button>🌱 Pipeline</button></a>
+  <a href="leads.html"><button>📞 Leads</button></a>
+</div>
+
+<h1>📞 Leads de Eventos</h1>
+
+<!-- FORM -->
+<div class="card">
+
+<h2>Nuevo Lead</h2>
+
+<input id="evento" placeholder="Evento">
+
+<input id="nombre" placeholder="Nombre productor">
+<input id="telefono" placeholder="Teléfono">
+<input id="correo" placeholder="Correo">
+
+<input id="cultivo" placeholder="Cultivo">
+<input id="hectareas" placeholder="Hectáreas estimadas">
+<input id="variedad" placeholder="Variedad actual">
+
+<select id="interes">
+<option>Ensayo</option>
+<option>Compra directa</option>
+<option>Cotización</option>
+</select>
+
+<input id="ticket" placeholder="Ticket estimado $">
+<input id="proximo" placeholder="Próximo paso">
+
+<input id="responsable" placeholder="Responsable comercial">
+
+<label>Fecha 1er contacto</label>
+<input type="date" id="fecha1">
+
+<label>Fecha 2do contacto</label>
+<input type="date" id="fecha2">
+
+<button class="save" onclick="guardar()">Guardar Lead</button>
+
+</div>
+
+<!-- KPI -->
+<div class="card">
+<h2>📊 KPI Leads</h2>
+<div id="kpis"></div>
+</div>
+
+<!-- TABLA -->
+<div class="card">
+
+<button class="export" onclick="exportarExcel()">📊 Exportar</button>
+
+<table id="tabla"></table>
+
+</div>
+
+<script>
+
+let leads = JSON.parse(localStorage.getItem("leads")) || [];
+
+// ===== GUARDAR =====
+function guardar(){
+
+    let data = {
+        id: Date.now(),
+        evento: evento.value,
+        nombre: nombre.value,
+        telefono: telefono.value,
+        correo: correo.value,
+        cultivo: cultivo.value,
+        hectareas: +hectareas.value || 0,
+        variedad: variedad.value,
+        interes: interes.value,
+        ticket: +ticket.value || 0,
+        proximo: proximo.value,
+        responsable: responsable.value,
+        fecha1: fecha1.value,
+        fecha2: fecha2.value,
+        fecha: new Date().toLocaleString()
+    };
+
+    leads.push(data);
+    localStorage.setItem("leads", JSON.stringify(leads));
+
+    render();
+}
+
+// ===== KPI =====
+function calcularKPIs(){
+
+    let total = leads.length;
+
+    let con2Toques = leads.filter(l => l.fecha1 && l.fecha2).length;
+
+    let porcentaje = total ? (con2Toques / total) * 100 : 0;
+
+    let clase = porcentaje >= 90 ? "green" : "red";
+
+    kpis.innerHTML = `
+    <div class="kpi">Total Leads: ${total}</div>
+    <div class="kpi ${clase}">% Leads con 2 toques: ${porcentaje.toFixed(2)}%</div>
+    `;
+
+}
+
+// ===== RENDER =====
+function render(){
+
+    tabla.innerHTML = `
+    <tr>
+    <th>Evento</th>
+    <th>Nombre</th>
+    <th>Cultivo</th>
+    <th>Interés</th>
+    <th>Ticket</th>
+    <th>1er toque</th>
+    <th>2do toque</th>
+    <th></th>
+    </tr>
+    `;
+
+    leads.slice().reverse().forEach(l=>{
+
+        tabla.innerHTML += `
+        <tr>
+        <td>${l.evento}</td>
+        <td>${l.nombre}</td>
+        <td>${l.cultivo}</td>
+        <td>${l.interes}</td>
+        <td>$${l.ticket}</td>
+        <td>${l.fecha1 || "-"}</td>
+        <td>${l.fecha2 || "-"}</td>
+        <td><button class="delete" onclick="eliminar(${l.id})">🗑</button></td>
+        </tr>
+        `;
+    });
+
+    calcularKPIs();
+}
+
+// ===== ELIMINAR =====
+function eliminar(id){
+
+    leads = leads.filter(l=>l.id != id);
+    localStorage.setItem("leads", JSON.stringify(leads));
+
+    render();
+}
+
+// ===== EXPORT =====
+function exportarExcel(){
+
+    let data = leads.map(l => ({
+
+        "Evento": l.evento,
+        "Nombre": l.nombre,
+        "Teléfono": l.telefono,
+        "Correo": l.correo,
+        "Cultivo": l.cultivo,
+        "Hectáreas": l.hectareas,
+        "Variedad": l.variedad,
+        "Interés": l.interes,
+        "Ticket": l.ticket,
+        "Responsable": l.responsable,
+        "Fecha 1er contacto": l.fecha1,
+        "Fecha 2do contacto": l.fecha2
+
+    }));
+
+    let ws = XLSX.utils.json_to_sheet(data);
+    let wb = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(wb, ws, "Leads");
+
+    XLSX.writeFile(wb, "Leads_Eventos.xlsx");
+}
+
+// INIT
+render();
+
+</script>
+
+</body>
+</html>
