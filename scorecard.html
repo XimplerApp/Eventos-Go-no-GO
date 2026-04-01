@@ -223,6 +223,7 @@ ${alerta ? "⚠️ " + alerta : ""}
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
 eventos.push({
+    id: Date.now(), // 🔥 NUEVO
 fecha: new Date().toLocaleString(),
 evento: evento.value,
 tipo: tipoEvento,
