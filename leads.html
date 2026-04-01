@@ -34,7 +34,6 @@ button {
 .kpi {font-size:18px; margin:5px 0;}
 .green {color:#22c55e;}
 .red {color:#ef4444;}
-.yellow {color:#facc15;}
 
 table {
     width:100%;
@@ -67,7 +66,7 @@ th, td {
 
 <h2>Nuevo Lead</h2>
 
-<input id="evento" placeholder="Evento">
+<select id="evento"></select>
 
 <input id="nombre" placeholder="Nombre productor">
 <input id="telefono" placeholder="Teléfono">
@@ -116,13 +115,42 @@ th, td {
 <script>
 
 let leads = JSON.parse(localStorage.getItem("leads")) || [];
+let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+
+// ===== CARGAR EVENTOS =====
+function cargarEventos(){
+
+    let select = document.getElementById("evento");
+
+    select.innerHTML = "";
+
+    if(eventos.length === 0){
+        select.innerHTML = `<option>No hay eventos</option>`;
+        return;
+    }
+
+    eventos.forEach(e => {
+
+        let texto = `${e.evento} | ${e.cultivo} | ${e.zona}`;
+
+        select.innerHTML += `
+        <option value="${e.id}">
+        ${texto}
+        </option>
+        `;
+    });
+
+}
 
 // ===== GUARDAR =====
 function guardar(){
 
+    let eventoSeleccionado = eventos.find(e => e.id == evento.value);
+
     let data = {
         id: Date.now(),
-        evento: evento.value,
+        evento_id: evento.value,
+        evento_nombre: eventoSeleccionado?.evento || "",
         nombre: nombre.value,
         telefono: telefono.value,
         correo: correo.value,
@@ -141,6 +169,7 @@ function guardar(){
     leads.push(data);
     localStorage.setItem("leads", JSON.stringify(leads));
 
+    limpiar();
     render();
 }
 
@@ -159,7 +188,6 @@ function calcularKPIs(){
     <div class="kpi">Total Leads: ${total}</div>
     <div class="kpi ${clase}">% Leads con 2 toques: ${porcentaje.toFixed(2)}%</div>
     `;
-
 }
 
 // ===== RENDER =====
@@ -182,11 +210,11 @@ function render(){
 
         tabla.innerHTML += `
         <tr>
-        <td>${l.evento}</td>
+        <td>${l.evento_nombre}</td>
         <td>${l.nombre}</td>
         <td>${l.cultivo}</td>
         <td>${l.interes}</td>
-        <td>$${l.ticket}</td>
+        <td>$${l.ticket.toLocaleString()}</td>
         <td>${l.fecha1 || "-"}</td>
         <td>${l.fecha2 || "-"}</td>
         <td><button class="delete" onclick="eliminar(${l.id})">🗑</button></td>
@@ -211,7 +239,7 @@ function exportarExcel(){
 
     let data = leads.map(l => ({
 
-        "Evento": l.evento,
+        "Evento": l.evento_nombre,
         "Nombre": l.nombre,
         "Teléfono": l.telefono,
         "Correo": l.correo,
@@ -234,7 +262,13 @@ function exportarExcel(){
     XLSX.writeFile(wb, "Leads_Eventos.xlsx");
 }
 
-// INIT
+// ===== LIMPIAR =====
+function limpiar(){
+    document.querySelectorAll("input").forEach(i=>i.value="");
+}
+
+// ===== INIT =====
+cargarEventos();
 render();
 
 </script>
