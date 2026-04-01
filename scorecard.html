@@ -182,19 +182,40 @@ else if((ventasVal / leads) > 1000000){
 // ===== RESULTADO UI =====
 resultado.innerHTML = `
 <div class="card">
-<h2>Resultado</h2>
 
-<div class="kpi">Score: ${totalScore}</div>
-<div class="kpi ${colorScore}">${decision}</div>
+<div class="kpi">
+Score: ${totalScore}/100 ${scoreOK ? "GO ✅" : "NO GO ❌"}
+</div>
 
-<div class="kpi">Costo: $${costo.toLocaleString()}</div>
-<div class="kpi">Ventas: $${ventasVal.toLocaleString()}</div>
-<div class="kpi">ROI: ${(roi*100).toFixed(2)}%</div>
+<div class="kpi">💸 Costo total: $${costo.toLocaleString()}</div>
+<div class="kpi">💰 Ventas esperadas: $${ventasVal.toLocaleString()}</div>
 
-<div class="kpi">Leads: ${leads}</div>
-<div class="kpi">CPL: $${cpl.toFixed(2)}</div>
+<div class="kpi">
+ROI: ${(roi*100).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}%
+</div>
 
-<div class="kpi yellow">${alerta}</div>
+<div class="kpi">
+ROI mínimo requerido: ${(roiMin*100)}%
+</div>
+
+<div class="kpi">📊 Leads: ${leads}</div>
+
+<div class="kpi">
+💰 CPL: $${cpl.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}
+</div>
+
+<div class="kpi">
+💵 Ticket por lead: $${leads ? (ventasVal/leads).toLocaleString() : 0}
+</div>
+
+<div class="kpi ${roiOK?'green':'red'}">
+${roiOK ? "✔ ROI cumple" : "❌ ROI no cumple"}
+</div>
+
+<div class="kpi yellow">
+${alerta ? "⚠️ " + alerta : ""}
+</div>
+
 </div>
 `;
 
