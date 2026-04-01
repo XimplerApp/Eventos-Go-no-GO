@@ -53,9 +53,6 @@ th, td {
 <!-- HEADER -->
 <div style="display:flex; gap:10px; margin-bottom:20px;">
   <a href="index.html"><button>📋 Ensayos</button></a>
-  <a href="bitacora.html"><button>📸 Bitácora</button></a>
-  <a href="resultados.html"><button>📊 Resultados</button></a>
-  <a href="pipeline.html"><button>🌱 Pipeline</button></a>
   <a href="leads.html"><button>📞 Leads</button></a>
 </div>
 
@@ -117,6 +114,12 @@ th, td {
 let leads = JSON.parse(localStorage.getItem("leads")) || [];
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
+// ===== FUNCIÓN NUMEROS (FIX COMAS) =====
+function num(valor){
+    if(!valor) return 0;
+    return parseFloat(valor.replace(/,/g,'')) || 0;
+}
+
 // ===== CARGAR EVENTOS =====
 function cargarEventos(){
 
@@ -139,30 +142,41 @@ function cargarEventos(){
         </option>
         `;
     });
-
 }
 
 // ===== GUARDAR =====
 function guardar(){
 
-    let eventoSeleccionado = eventos.find(e => e.id == evento.value);
+    let eventoId = document.getElementById("evento").value;
+
+    let eventoSeleccionado = eventos.find(e => String(e.id) === String(eventoId));
+
+    // fallback eventos viejos
+    if(!eventoSeleccionado){
+        eventoSeleccionado = eventos.find(e => e.evento === eventoId);
+    }
 
     let data = {
         id: Date.now(),
-        evento_id: evento.value,
-        evento_nombre: eventoSeleccionado?.evento || "",
+        evento_id: eventoId,
+        evento_nombre: eventoSeleccionado ? eventoSeleccionado.evento : "Evento no encontrado",
+
         nombre: nombre.value,
         telefono: telefono.value,
         correo: correo.value,
         cultivo: cultivo.value,
-        hectareas: +hectareas.value || 0,
+
+        hectareas: num(hectareas.value),
         variedad: variedad.value,
         interes: interes.value,
-        ticket: +ticket.value || 0,
+
+        ticket: num(ticket.value),
+
         proximo: proximo.value,
         responsable: responsable.value,
         fecha1: fecha1.value,
         fecha2: fecha2.value,
+
         fecha: new Date().toLocaleString()
     };
 
@@ -214,7 +228,7 @@ function render(){
         <td>${l.nombre}</td>
         <td>${l.cultivo}</td>
         <td>${l.interes}</td>
-        <td>$${l.ticket.toLocaleString()}</td>
+        <td>$${Number(l.ticket).toLocaleString()}</td>
         <td>${l.fecha1 || "-"}</td>
         <td>${l.fecha2 || "-"}</td>
         <td><button class="delete" onclick="eliminar(${l.id})">🗑</button></td>
@@ -244,10 +258,13 @@ function exportarExcel(){
         "Teléfono": l.telefono,
         "Correo": l.correo,
         "Cultivo": l.cultivo,
-        "Hectáreas": l.hectareas,
+
+        "Hectáreas": Number(l.hectareas).toLocaleString(),
         "Variedad": l.variedad,
         "Interés": l.interes,
-        "Ticket": l.ticket,
+
+        "Ticket": Number(l.ticket).toLocaleString(),
+
         "Responsable": l.responsable,
         "Fecha 1er contacto": l.fecha1,
         "Fecha 2do contacto": l.fecha2
