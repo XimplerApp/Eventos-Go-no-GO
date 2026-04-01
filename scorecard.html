@@ -291,9 +291,11 @@ if(h === "roi" && val !== undefined){
     maximumFractionDigits:2
   }) + "%";
 }
-  
+
+// ticket → separador de miles
   else if(h === "ticket"){
   val = Number(val).toLocaleString();
+}
 
 // números grandes → separador de miles
 else if(
