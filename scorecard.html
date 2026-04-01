@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Scorecard GO / NO-GO</title>
+<title>Scorecard GO / NO-GO PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -39,12 +39,8 @@ button {
 
 <h1>📊 Scorecard GO / NO-GO</h1>
 
-<!-- ========================= -->
-<!-- DATOS GENERALES -->
-<!-- ========================= -->
-
+<!-- DATOS -->
 <div class="card">
-
 <h2>Datos del Evento</h2>
 
 <input id="evento" placeholder="Nombre del evento">
@@ -59,8 +55,8 @@ button {
 <input id="cultivo" placeholder="Cultivo">
 <input id="zona" placeholder="Zona">
 <input id="publico" placeholder="Público objetivo">
-
-<input id="objetivo" placeholder="Objetivo comercial (ej. 60 leads, $80k pipeline)">
+<input id="objetivo" placeholder="Objetivo comercial">
+<input id="leads" placeholder="Leads esperados">
 
 <select id="formato">
 <option>Stand</option>
@@ -68,37 +64,27 @@ button {
 <option>Conferencia técnica</option>
 <option>Visita privada</option>
 </select>
-
 </div>
 
-<!-- ========================= -->
-<!-- EVALUACIÓN -->
-<!-- ========================= -->
-
+<!-- SCORE -->
 <div class="card">
-
 <h2>Matriz de Evaluación (0-20)</h2>
 
-<input id="alineacion" placeholder="Alineación estratégica (0-20)">
-<input id="audiencia" placeholder="Audiencia calificada (0-20)">
-<input id="inventario" placeholder="Inventario disponible (0-20)">
-<input id="timing" placeholder="Timing comercial (0-20)">
-<input id="roiScore" placeholder="ROI esperado (0-20)">
-<input id="seguimiento" placeholder="Capacidad seguimiento (0-20)">
-
+<input id="alineacion" placeholder="Alineación estratégica">
+<input id="audiencia" placeholder="Audiencia calificada">
+<input id="inventario" placeholder="Inventario disponible">
+<input id="timing" placeholder="Timing comercial">
+<input id="roiScore" placeholder="ROI esperado">
+<input id="seguimiento" placeholder="Capacidad seguimiento">
 </div>
 
-<!-- ========================= -->
 <!-- COSTOS -->
-<!-- ========================= -->
-
 <div class="card">
-
 <h2>Costeo del Evento</h2>
 
-<input id="stand" placeholder="Stand / renta $">
-<input id="viaticos" placeholder="Viáticos $">
-<input id="muestras" placeholder="Muestras $">
+<input id="stand" placeholder="Stand / renta">
+<input id="viaticos" placeholder="Viáticos">
+<input id="muestras" placeholder="Muestras">
 
 <input id="horasTecnico" placeholder="Horas técnico">
 <input id="costoHoraTecnico" placeholder="Costo hora técnico">
@@ -106,22 +92,16 @@ button {
 <input id="horasComercial" placeholder="Horas comercial">
 <input id="costoHoraComercial" placeholder="Costo hora comercial">
 
-<input id="costoOportunidad" placeholder="Costo oportunidad $">
-<input id="seguimientoCosto" placeholder="Seguimiento post-evento $">
-<input id="captacion" placeholder="Captación / marketing $">
-
+<input id="costoOportunidad" placeholder="Costo oportunidad">
+<input id="seguimientoCosto" placeholder="Seguimiento">
+<input id="captacion" placeholder="Captación / marketing">
 </div>
 
-<!-- ========================= -->
 <!-- INGRESOS -->
-<!-- ========================= -->
-
 <div class="card">
-
 <h2>Proyección Comercial</h2>
 
-<input id="ventas" placeholder="Ventas atribuibles esperadas $">
-
+<input id="ventas" placeholder="Ventas esperadas">
 </div>
 
 <button onclick="calcular()">🚀 Evaluar Evento</button>
@@ -130,54 +110,78 @@ button {
 
 <script>
 
+// FUNCIÓN LIMPIA DE NÚMEROS (SOLUCIÓN CLAVE)
+function num(id){
+  let val = document.getElementById(id).value;
+  if(!val) return 0;
+  return parseFloat(val.replace(/,/g,'')) || 0;
+}
+
 function calcular(){
 
-// ===== SCORE =====
-
+// SCORE
 let totalScore =
-(+alineacion.value||0) +
-(+audiencia.value||0) +
-(+inventario.value||0) +
-(+timing.value||0) +
-(+roiScore.value||0) +
-(+seguimiento.value||0);
+num("alineacion") +
+num("audiencia") +
+num("inventario") +
+num("timing") +
+num("roiScore") +
+num("seguimiento");
 
-// ===== COSTO TOTAL =====
-
+// COSTO TOTAL
 let costo =
-(+stand.value||0) +
-(+viaticos.value||0) +
-(+muestras.value||0) +
-((+horasTecnico.value||0) * (+costoHoraTecnico.value||0)) +
-((+horasComercial.value||0) * (+costoHoraComercial.value||0)) +
-(+costoOportunidad.value||0) +
-(+seguimientoCosto.value||0) +
-(+captacion.value||0);
+num("stand") +
+num("viaticos") +
+num("muestras") +
+(num("horasTecnico") * num("costoHoraTecnico")) +
+(num("horasComercial") * num("costoHoraComercial")) +
+num("costoOportunidad") +
+num("seguimientoCosto") +
+num("captacion");
 
-// ===== INGRESO =====
+// INGRESOS
+let ventasVal = num("ventas");
 
-let ventasVal = (+ventas.value||0);
+// LEADS
+let leads = num("leads");
 
-// ===== ROI =====
-
+// ROI
 let roi = costo ? (ventasVal - costo) / costo : 0;
 
-// ===== REGLAS =====
+// CPL
+let cpl = leads ? costo / leads : 0;
 
-let decision = totalScore >= 75 ? "GO ✅" : "NO GO ❌";
-
-let colorScore = totalScore >= 75 ? "green" : "red";
-
-let roiMin = 0.3;
-
+// TIPO EVENTO
 let tipoEvento = tipo.value;
 
+// ROI mínimo por tipo
+let roiMin = 0.3;
 if(tipoEvento === "Finca demostrativa") roiMin = 0.4;
 
-let roiOk = roi >= roiMin;
+// DECISIONES
+let scoreOK = totalScore >= 75;
+let roiOK = roi >= roiMin;
 
-// ===== RESULTADO =====
+let decision = scoreOK ? "GO ✅" : "NO GO ❌";
+let colorScore = scoreOK ? "green" : "red";
 
+// ALERTAS INTELIGENTES
+let alerta = "";
+
+if(ventasVal === 0){
+  alerta = "⚠️ Ventas en 0 → ROI inválido";
+}
+else if(leads <= 0){
+  alerta = "⚠️ Sin leads → evento no medible";
+}
+else if(cpl > 5000){
+  alerta = "⚠️ CPL alto → revisar eficiencia";
+}
+else if((ventasVal / leads) > 1000000){
+  alerta = "⚠️ Ticket por lead extremadamente alto";
+}
+
+// RESULTADO
 resultado.innerHTML = `
 
 <div class="card">
@@ -189,10 +193,10 @@ resultado.innerHTML = `
 
 <hr>
 
-<div class="kpi">💸 Costo total: $${costo.toFixed(2)}</div>
-<div class="kpi">💰 Ventas esperadas: $${ventasVal.toFixed(2)}</div>
+<div class="kpi">💸 Costo total: $${costo.toLocaleString()}</div>
+<div class="kpi">💰 Ventas esperadas: $${ventasVal.toLocaleString()}</div>
 
-<div class="kpi ${roiOk?'green':'red'}">
+<div class="kpi ${roiOK?'green':'red'}">
 ROI: ${(roi*100).toFixed(2)}%
 </div>
 
@@ -202,28 +206,37 @@ ROI mínimo requerido: ${(roiMin*100)}%
 
 <hr>
 
-<div class="kpi ${roiOk?'green':'red'}">
-${roiOk ? "✔ ROI cumple" : "❌ ROI no cumple"}
+<div class="kpi">📊 Leads: ${leads}</div>
+<div class="kpi">💰 CPL: $${cpl.toFixed(2)}</div>
+
+<div class="kpi">
+💵 Ticket por lead: $${leads ? (ventasVal/leads).toLocaleString() : 0}
 </div>
 
+<hr>
+
+<div class="kpi ${roiOK?'green':'red'}">
+${roiOK ? "✔ ROI cumple" : "❌ ROI no cumple"}
 </div>
 
+<div class="kpi yellow">${alerta}</div>
+
+</div>
 `;
 
-// ===== GUARDAR =====
-
+// GUARDAR
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
 eventos.push({
 id: Date.now(),
 evento: evento.value,
 tipo: tipoEvento,
-cultivo: cultivo.value,
-zona: zona.value,
 score: totalScore,
 roi,
 costo,
 ventas: ventasVal,
+leads,
+cpl,
 decision,
 fecha: new Date().toLocaleString()
 });
