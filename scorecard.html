@@ -281,12 +281,27 @@ let row = headers.map(h => {
 
 let val = e[h];
 
-// limpiar comas para evitar romper CSV
-if(typeof val === "string"){
-  val = val.replace(/,/g,"");
+// ===== FORMATEOS =====
+
+// ROI → porcentaje
+if(h === "roi" && val !== undefined){
+  val = (val * 100).toLocaleString(undefined,{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  }) + "%";
 }
 
-return val ?? "";
+// números → formato miles
+else if(
+  h === "ventas" ||
+  h === "costo" ||
+  h === "cpl"
+){
+  val = Number(val).toLocaleString();
+}
+
+// proteger formato CSV
+return `"${val ?? ""}"`;
 
 });
 
