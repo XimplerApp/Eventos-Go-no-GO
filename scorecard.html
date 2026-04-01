@@ -68,21 +68,21 @@ button {
 
 <!-- SCORE -->
 <div class="card">
-<h2>Matriz de Evaluación (0-20)</h2>
+<h2>Matriz de Evaluación</h2>
 
-<input id="alineacion" placeholder="Alineación estratégica">
-<input id="audiencia" placeholder="Audiencia calificada">
-<input id="inventario" placeholder="Inventario disponible">
-<input id="timing" placeholder="Timing comercial">
-<input id="roiScore" placeholder="ROI esperado">
-<input id="seguimiento" placeholder="Capacidad seguimiento">
+<input id="alineacion" placeholder="Alineación (0-20)">
+<input id="audiencia" placeholder="Audiencia (0-20)">
+<input id="inventario" placeholder="Inventario (0-15)">
+<input id="timing" placeholder="Timing (0-15)">
+<input id="roiScore" placeholder="ROI esperado (0-20)">
+<input id="seguimiento" placeholder="Seguimiento (0-10)">
 </div>
 
 <!-- COSTOS -->
 <div class="card">
-<h2>Costeo del Evento</h2>
+<h2>Costeo</h2>
 
-<input id="stand" placeholder="Stand / renta">
+<input id="stand" placeholder="Stand">
 <input id="viaticos" placeholder="Viáticos">
 <input id="muestras" placeholder="Muestras">
 
@@ -94,23 +94,24 @@ button {
 
 <input id="costoOportunidad" placeholder="Costo oportunidad">
 <input id="seguimientoCosto" placeholder="Seguimiento">
-<input id="captacion" placeholder="Captación / marketing">
+<input id="captacion" placeholder="Captación">
 </div>
 
 <!-- INGRESOS -->
 <div class="card">
-<h2>Proyección Comercial</h2>
+<h2>Proyección</h2>
 
 <input id="ventas" placeholder="Ventas esperadas">
 </div>
 
-<button onclick="calcular()">🚀 Evaluar Evento</button>
+<button onclick="calcular()">🚀 Evaluar</button>
+<button onclick="exportar()">📤 Exportar Evaluaciones</button>
 
 <div id="resultado"></div>
 
 <script>
 
-// FUNCIÓN LIMPIA DE NÚMEROS (SOLUCIÓN CLAVE)
+// FUNCIÓN LIMPIA
 function num(id){
   let val = document.getElementById(id).value;
   if(!val) return 0;
@@ -119,16 +120,17 @@ function num(id){
 
 function calcular(){
 
-// SCORE
-let totalScore =
-num("alineacion") +
-num("audiencia") +
-num("inventario") +
-num("timing") +
-num("roiScore") +
-num("seguimiento");
+// ===== SCORE =====
+let alineacion = Math.min(num("alineacion"),20);
+let audiencia = Math.min(num("audiencia"),20);
+let inventario = Math.min(num("inventario"),15);
+let timing = Math.min(num("timing"),15);
+let roiScore = Math.min(num("roiScore"),20);
+let seguimiento = Math.min(num("seguimiento"),10);
 
-// COSTO TOTAL
+let totalScore = alineacion + audiencia + inventario + timing + roiScore + seguimiento;
+
+// ===== COSTO =====
 let costo =
 num("stand") +
 num("viaticos") +
@@ -139,109 +141,120 @@ num("costoOportunidad") +
 num("seguimientoCosto") +
 num("captacion");
 
-// INGRESOS
+// ===== INGRESOS =====
 let ventasVal = num("ventas");
-
-// LEADS
 let leads = num("leads");
 
-// ROI
+// ===== ROI =====
 let roi = costo ? (ventasVal - costo) / costo : 0;
 
-// CPL
+// ===== CPL =====
 let cpl = leads ? costo / leads : 0;
 
-// TIPO EVENTO
+// ===== ROI mínimo =====
 let tipoEvento = tipo.value;
-
-// ROI mínimo por tipo
 let roiMin = 0.3;
 if(tipoEvento === "Finca demostrativa") roiMin = 0.4;
 
-// DECISIONES
+// ===== DECISION =====
 let scoreOK = totalScore >= 75;
 let roiOK = roi >= roiMin;
 
-let decision = scoreOK ? "GO ✅" : "NO GO ❌";
+let decision = scoreOK ? "GO" : "NO GO";
 let colorScore = scoreOK ? "green" : "red";
 
-// ALERTAS INTELIGENTES
+// ===== ALERTAS =====
 let alerta = "";
 
 if(ventasVal === 0){
-  alerta = "⚠️ Ventas en 0 → ROI inválido";
+  alerta = "Ventas en 0";
 }
 else if(leads <= 0){
-  alerta = "⚠️ Sin leads → evento no medible";
+  alerta = "Sin leads";
 }
 else if(cpl > 5000){
-  alerta = "⚠️ CPL alto → revisar eficiencia";
+  alerta = "CPL alto";
 }
 else if((ventasVal / leads) > 1000000){
-  alerta = "⚠️ Ticket por lead extremadamente alto";
+  alerta = "Evento estratégico (alto valor)";
 }
 
-// RESULTADO
+// ===== RESULTADO UI =====
 resultado.innerHTML = `
-
 <div class="card">
-
 <h2>Resultado</h2>
 
-<div class="kpi">📊 Score: ${totalScore}/100</div>
-<div class="kpi ${colorScore}"><b>${decision}</b></div>
+<div class="kpi">Score: ${totalScore}</div>
+<div class="kpi ${colorScore}">${decision}</div>
 
-<hr>
+<div class="kpi">Costo: $${costo.toLocaleString()}</div>
+<div class="kpi">Ventas: $${ventasVal.toLocaleString()}</div>
+<div class="kpi">ROI: ${(roi*100).toFixed(2)}%</div>
 
-<div class="kpi">💸 Costo total: $${costo.toLocaleString()}</div>
-<div class="kpi">💰 Ventas esperadas: $${ventasVal.toLocaleString()}</div>
-
-<div class="kpi ${roiOK?'green':'red'}">
-ROI: ${(roi*100).toFixed(2)}%
-</div>
-
-<div class="kpi">
-ROI mínimo requerido: ${(roiMin*100)}%
-</div>
-
-<hr>
-
-<div class="kpi">📊 Leads: ${leads}</div>
-<div class="kpi">💰 CPL: $${cpl.toFixed(2)}</div>
-
-<div class="kpi">
-💵 Ticket por lead: $${leads ? (ventasVal/leads).toLocaleString() : 0}
-</div>
-
-<hr>
-
-<div class="kpi ${roiOK?'green':'red'}">
-${roiOK ? "✔ ROI cumple" : "❌ ROI no cumple"}
-</div>
+<div class="kpi">Leads: ${leads}</div>
+<div class="kpi">CPL: $${cpl.toFixed(2)}</div>
 
 <div class="kpi yellow">${alerta}</div>
-
 </div>
 `;
 
-// GUARDAR
+// ===== GUARDAR =====
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 
 eventos.push({
-id: Date.now(),
+fecha: new Date().toLocaleString(),
 evento: evento.value,
 tipo: tipoEvento,
+cultivo: cultivo.value,
+zona: zona.value,
+publico: publico.value,
+objetivo: objetivo.value,
+formato: formato.value,
+
 score: totalScore,
-roi,
-costo,
+decision,
+
 ventas: ventasVal,
+costo,
+roi,
 leads,
 cpl,
-decision,
-fecha: new Date().toLocaleString()
+
+alineacion,
+audiencia,
+inventario,
+timing,
+roiScore,
+seguimiento
 });
 
 localStorage.setItem("eventos", JSON.stringify(eventos));
+
+}
+
+// ===== EXPORTAR CSV =====
+function exportar(){
+
+let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+
+if(eventos.length === 0){
+  alert("No hay datos");
+  return;
+}
+
+let csv = "Fecha,Evento,Tipo,Cultivo,Zona,Publico,Objetivo,Formato,Score,Decision,Ventas,Costo,ROI,Leads,CPL,Alineacion,Audiencia,Inventario,Timing,ROIscore,Seguimiento\n";
+
+eventos.forEach(e => {
+  csv += `${e.fecha},${e.evento},${e.tipo},${e.cultivo},${e.zona},${e.publico},${e.objetivo},${e.formato},${e.score},${e.decision},${e.ventas},${e.costo},${e.roi},${e.leads},${e.cpl},${e.alineacion},${e.audiencia},${e.inventario},${e.timing},${e.roiScore},${e.seguimiento}\n`;
+});
+
+let blob = new Blob([csv], { type: 'text/csv' });
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "eventos_galera.csv";
+a.click();
 
 }
 
