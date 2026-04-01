@@ -263,12 +263,38 @@ if(eventos.length === 0){
   return;
 }
 
-let csv = "Fecha,Evento,Tipo,Cultivo,Zona,Publico,Objetivo,Formato,Score,Decision,Ventas,Costo,ROI,Leads,CPL,Alineacion,Audiencia,Inventario,Timing,ROIscore,Seguimiento\n";
+// ORDEN DEFINIDO (FUENTE DE VERDAD)
+let headers = [
+"fecha","evento","tipo","cultivo","zona","publico","objetivo","formato",
+"score","decision",
+"ventas","costo","roi","leads","cpl",
+"alineacion","audiencia","inventario","timing","roiScore","seguimiento"
+];
 
+// ENCABEZADOS
+let csv = headers.join(",") + "\n";
+
+// FILAS
 eventos.forEach(e => {
-  csv += `${e.fecha},${e.evento},${e.tipo},${e.cultivo},${e.zona},${e.publico},${e.objetivo},${e.formato},${e.score},${e.decision},${e.ventas},${e.costo},${e.roi},${e.leads},${e.cpl},${e.alineacion},${e.audiencia},${e.inventario},${e.timing},${e.roiScore},${e.seguimiento}\n`;
+
+let row = headers.map(h => {
+
+let val = e[h];
+
+// limpiar comas para evitar romper CSV
+if(typeof val === "string"){
+  val = val.replace(/,/g,"");
+}
+
+return val ?? "";
+
 });
 
+csv += row.join(",") + "\n";
+
+});
+
+// DESCARGA
 let blob = new Blob([csv], { type: 'text/csv' });
 let url = URL.createObjectURL(blob);
 
