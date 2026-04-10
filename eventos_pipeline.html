@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Eventos → Pipeline → Cobro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
+h1 {color:#38bdf8;}
+
+.card {background:#1e293b; padding:20px; border-radius:10px; margin-bottom:20px;}
+
+input, select {
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+    border-radius:6px;
+    border:none;
+}
+
+button {
+    padding:8px;
+    margin:3px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.save {background:#22c55e;}
+.delete {background:#ef4444;}
+.export {background:#22c55e;}
+
+.kpi {font-size:16px; margin:5px 0;}
+.green {color:#22c55e;}
+.red {color:#ef4444;}
+.yellow {color:#facc15;}
+
+table {
+    width:100%;
+    border-collapse: collapse;
+    text-align:center;
+}
+
+th, td {
+    padding:10px;
+    border-bottom:1px solid #334155;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🚀 EVENTOS → PIPELINE → COBRO</h1>
+
+<!-- ========================= -->
+<!-- VISTA 1 EVENTOS -->
+<!-- ========================= -->
+
+<div class="card">
+<h2>🎯 Eventos</h2>
+
+<input id="evento" placeholder="Nombre del evento">
+<input id="inversion" placeholder="Inversión $">
+<input id="leads" placeholder="Leads generados">
+<input id="pipeline" placeholder="Pipeline generado $">
+<input id="ventas30" placeholder="Ventas 30 días $">
+<input id="ventas90" placeholder="Ventas 90 días $">
+
+<button class="save" onclick="guardarEvento()">Guardar Evento</button>
+
+<table id="tablaEventos"></table>
+</div>
+
+<!-- ========================= -->
+<!-- VISTA 2 PIPELINE -->
+<!-- ========================= -->
+
+<div class="card">
+<h2>📈 Pipeline</h2>
+
+<select id="eventoPipeline"></select>
+
+<select id="etapa">
+<option>Lead</option>
+<option>Contactado</option>
+<option>Demo/Ensayo</option>
+<option>Cotización</option>
+<option>Orden</option>
+<option>Entrega</option>
+<option>Factura</option>
+<option>Cobrado</option>
+</select>
+
+<input id="monto" placeholder="Monto $">
+
+<button class="save" onclick="guardarPipeline()">Agregar</button>
+
+<div id="kpisPipeline"></div>
+
+<table id="tablaPipeline"></table>
+</div>
+
+<!-- ========================= -->
+<!-- VISTA 3 COBRANZA -->
+<!-- ========================= -->
+
+<div class="card">
+<h2>💰 Cobranza</h2>
+
+<input id="cliente" placeholder="Cliente">
+<input id="montoCobro" placeholder="Monto $">
+<input id="dias" placeholder="Días de vencimiento">
+
+<button class="save" onclick="guardarCobro()">Agregar</button>
+
+<div id="kpisCobro"></div>
+
+<table id="tablaCobro"></table>
+</div>
+
+<script>
+
+// ================= DATA =================
+let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+let pipeline = JSON.parse(localStorage.getItem("pipeline_eventos")) || [];
+let cobranza = JSON.parse(localStorage.getItem("cobranza")) || [];
+
+// ================= EVENTOS =================
+function guardarEvento(){
+
+let inv = +inversion.value || 0;
+let leadsVal = +leads.value || 0;
+
+let cpl = leadsVal ? inv / leadsVal : 0;
+
+let roi30 = inv ? (ventas30.value - inv) / inv : 0;
+let roi90 = inv ? (ventas90.value - inv) / inv : 0;
+
+let decision = roi90 >= 0.3 ? "GO" : "NO GO";
+
+let data = {
+id: Date.now(),
+evento: evento.value,
+inversion: inv,
+leads: leadsVal,
+cpl,
+pipeline: +pipeline.value || 0,
+roi30,
+roi90,
+decision
+};
+
+eventos.push(data);
+localStorage.setItem("eventos", JSON.stringify(eventos));
+
+renderEventos();
+cargarEventosPipeline();
+}
+
+// ================= PIPELINE =================
+function guardarPipeline(){
+
+let data = {
+id: Date.now(),
+evento: eventoPipeline.value,
+etapa: etapa.value,
+monto: +monto.value || 0
+};
+
+pipeline.push(data);
+localStorage.setItem("pipeline_eventos", JSON.stringify(pipeline));
+
+renderPipeline();
+}
+
+// ================= COBRANZA =================
+function guardarCobro(){
+
+let data = {
+id: Date.now(),
+cliente: cliente.value,
+monto: +montoCobro.value || 0,
+dias: +dias.value || 0
+};
+
+cobranza.push(data);
+localStorage.setItem("cobranza", JSON.stringify(cobranza));
+
+renderCobro();
+}
+
+// ================= RENDER EVENTOS =================
+function renderEventos(){
+
+tablaEventos.innerHTML = `
+<tr>
+<th>Evento</th>
+<th>Inversión</th>
+<th>Leads</th>
+<th>CPL</th>
+<th>Pipeline</th>
+<th>ROI 30d</th>
+<th>ROI 90d</th>
+<th>Decisión</th>
+</tr>
+`;
+
+eventos.forEach(e=>{
+tablaEventos.innerHTML += `
+<tr>
+<td>${e.evento}</td>
+<td>$${e.inversion.toLocaleString()}</td>
+<td>${e.leads}</td>
+<td>$${e.cpl.toFixed(2)}</td>
+<td>$${e.pipeline.toLocaleString()}</td>
+<td>${(e.roi30*100).toFixed(1)}%</td>
+<td>${(e.roi90*100).toFixed(1)}%</td>
+<td class="${e.decision=='GO'?'green':'red'}">${e.decision}</td>
+</tr>
+`;
+});
+}
+
+// ================= CARGAR EVENTOS EN PIPELINE =================
+function cargarEventosPipeline(){
+
+eventoPipeline.innerHTML="";
+eventos.forEach(e=>{
+eventoPipeline.innerHTML += `<option value="${e.evento}">${e.evento}</option>`;
+});
+}
+
+// ================= RENDER PIPELINE =================
+function renderPipeline(){
+
+tablaPipeline.innerHTML = `
+<tr>
+<th>Evento</th>
+<th>Etapa</th>
+<th>Monto</th>
+</tr>
+`;
+
+let leads = pipeline.filter(p=>p.etapa=="Lead").length;
+let ordenes = pipeline.filter(p=>p.etapa=="Orden").length;
+
+let conversion = leads ? (ordenes/leads)*100 : 0;
+
+kpisPipeline.innerHTML = `
+<div class="kpi">Conversión Lead → Orden: ${conversion.toFixed(2)}%</div>
+`;
+
+pipeline.forEach(p=>{
+tablaPipeline.innerHTML += `
+<tr>
+<td>${p.evento}</td>
+<td>${p.etapa}</td>
+<td>$${p.monto.toLocaleString()}</td>
+</tr>
+`;
+});
+}
+
+// ================= RENDER COBRANZA =================
+function renderCobro(){
+
+tablaCobro.innerHTML = `
+<tr>
+<th>Cliente</th>
+<th>Monto</th>
+<th>Días</th>
+</tr>
+`;
+
+let total = 0;
+let vencido = 0;
+
+cobranza.forEach(c=>{
+total += c.monto;
+if(c.dias > 60) vencido += c.monto;
+
+tablaCobro.innerHTML += `
+<tr>
+<td>${c.cliente}</td>
+<td>$${c.monto.toLocaleString()}</td>
+<td>${c.dias}</td>
+</tr>
+`;
+});
+
+let porcentaje = total ? (vencido/total)*100 : 0;
+
+kpisCobro.innerHTML = `
+<div class="kpi">Cartera >60 días: ${porcentaje.toFixed(2)}%</div>
+`;
+}
+
+// ================= INIT =================
+renderEventos();
+cargarEventosPipeline();
+renderPipeline();
+renderCobro();
+
+</script>
+
+</body>
+</html>
