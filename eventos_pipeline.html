@@ -26,11 +26,13 @@ button {
 }
 
 .save {background:#22c55e;}
+.delete {background:#ef4444;}
 
 .kpi {margin:5px 0;}
 
 .green {color:#22c55e;}
 .red {color:#ef4444;}
+.yellow {color:#facc15;}
 
 table {
     width:100%;
@@ -49,30 +51,32 @@ th, td {
 
 <h1>🚀 EVENTOS → PIPELINE → COBRO</h1>
 
-<!-- EVENTO -->
+<!-- ================= EVENTO SELECT ================= -->
 <div class="card">
 <h2>🎯 Seleccionar Evento</h2>
+
 <select id="eventoSelect" onchange="renderTodo()"></select>
+
 </div>
 
-<!-- KPIs -->
+<!-- ================= KPIs EVENTO ================= -->
 <div class="card">
 <h2>📊 KPIs del Evento</h2>
 <div id="kpis"></div>
 </div>
 
-<!-- PIPELINE -->
+<!-- ================= PIPELINE ================= -->
 <div class="card">
 <h2>📈 Pipeline (automático desde Leads)</h2>
 <table id="tablaPipeline"></table>
 </div>
 
-<!-- COBRANZA -->
+<!-- ================= COBRANZA ================= -->
 <div class="card">
 <h2>💰 Cobranza</h2>
 
 <input id="cliente" placeholder="Cliente">
-<input id="monto" placeholder="Monto $" oninput="formatearNumero(this)">
+<input id="monto" placeholder="Monto">
 <input id="dias" placeholder="Días vencidos">
 
 <button class="save" onclick="guardarCobro()">Agregar</button>
@@ -85,30 +89,12 @@ th, td {
 
 <script>
 
-// ================= HELPERS =================
-
-// convertir texto con comas a número
-function num(valor){
-    if(!valor) return 0;
-    return parseFloat(valor.replace(/,/g,'')) || 0;
-}
-
-// formatear mientras escribe
-function formatearNumero(input){
-    let valor = input.value.replace(/,/g,'');
-    if(!isNaN(valor) && valor !== ""){
-        input.value = Number(valor).toLocaleString();
-    }
-}
-
-// ================= DATA =================
-
+// ===== DATA GLOBAL =====
 let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 let leads = JSON.parse(localStorage.getItem("leads")) || [];
 let cobranza = JSON.parse(localStorage.getItem("cobranza")) || [];
 
-// ================= EVENTOS =================
-
+// ===== CARGAR EVENTOS =====
 function cargarEventos(){
 
 eventoSelect.innerHTML = "";
@@ -116,14 +102,13 @@ eventoSelect.innerHTML = "";
 eventos.forEach(e=>{
 eventoSelect.innerHTML += `
 <option value="${e.id}">
-${e.evento} | ${e.cultivo || ""} | ${e.zona || ""}
+${e.evento} | ${e.cultivo} | ${e.zona}
 </option>`;
 });
 
 }
 
-// ================= LEADS =================
-
+// ===== FILTRAR LEADS POR EVENTO =====
 function getLeadsEvento(){
 
 let id = eventoSelect.value;
@@ -134,16 +119,16 @@ String(l.evento_id) === String(id)
 
 }
 
-// ================= PIPELINE =================
-
+// ===== PIPELINE AUTOMÁTICO =====
 function renderPipeline(){
 
 let data = getLeadsEvento();
 
 let etapas = {
-"Ensayo":0,
-"Compra directa":0,
-"Cotización":0
+"Lead":0,
+"Contactado":0,
+"Cotización":0,
+"Orden":0
 };
 
 let montoPipeline = 0;
@@ -151,21 +136,21 @@ let ventas = 0;
 
 data.forEach(l=>{
 
-let estado = l.interes || "Ensayo";
+let estado = l.interes || "Lead";
 
 if(etapas[estado] !== undefined){
 etapas[estado]++;
 }
 
-montoPipeline += num(l.ticket);
+montoPipeline += l.ticket || 0;
 
-if(estado === "Compra directa"){
-ventas += num(l.ticket);
+if(estado === "Orden"){
+ventas += l.ticket || 0;
 }
 
 });
 
-// tabla
+// TABLA
 tablaPipeline.innerHTML = `
 <tr>
 <th>Etapa</th>
@@ -186,19 +171,20 @@ return {etapas, montoPipeline, ventas};
 
 }
 
-// ================= KPIs =================
-
+// ===== KPIs =====
 function renderKPIs(){
 
 let evento = eventos.find(e => String(e.id) === String(eventoSelect.value));
+
 if(!evento) return;
 
 let data = getLeadsEvento();
+
 let totalLeads = data.length;
 
 let pipelineData = renderPipeline();
 
-let ordenes = pipelineData.etapas["Compra directa"] || 0;
+let ordenes = pipelineData.etapas["Orden"] || 0;
 
 let conversion = totalLeads ? (ordenes / totalLeads)*100 : 0;
 
@@ -209,7 +195,7 @@ let roi = evento.costo ? (pipelineData.ventas - evento.costo) / evento.costo : 0
 kpis.innerHTML = `
 <div class="kpi">Leads: ${totalLeads}</div>
 <div class="kpi">Pipeline: $${pipelineData.montoPipeline.toLocaleString()}</div>
-<div class="kpi">Ventas: $${pipelineData.ventas.toLocaleString()}</div>
+<div class="kpi">Ventas (Órdenes): $${pipelineData.ventas.toLocaleString()}</div>
 
 <div class="kpi ${conversion>=20?'green':'red'}">
 Conversión: ${conversion.toFixed(2)}%
@@ -226,22 +212,20 @@ ROI: ${(roi*100).toFixed(2)}%
 
 }
 
-// ================= COBRANZA =================
-
+// ===== COBRANZA =====
 function guardarCobro(){
 
 let data = {
 id: Date.now(),
 evento_id: eventoSelect.value,
 cliente: cliente.value,
-monto: num(monto.value),
-dias: num(dias.value)
+monto: +monto.value || 0,
+dias: +dias.value || 0
 };
 
 cobranza.push(data);
 localStorage.setItem("cobranza", JSON.stringify(cobranza));
 
-limpiar();
 renderCobro();
 }
 
@@ -285,22 +269,14 @@ kpisCobro.innerHTML = `
 `;
 }
 
-// ================= UTIL =================
-
-function limpiar(){
-document.querySelectorAll("input").forEach(i=>i.value="");
-}
-
-// ================= RENDER =================
-
+// ===== RENDER TODO =====
 function renderTodo(){
 renderPipeline();
 renderKPIs();
 renderCobro();
 }
 
-// ================= INIT =================
-
+// ===== INIT =====
 cargarEventos();
 renderTodo();
 
