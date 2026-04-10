@@ -82,7 +82,9 @@ th, td {
 <button class="save" onclick="guardarCobro()">Agregar</button>
 
 <div id="kpisCobro"></div>
-
+    
+<button onclick="exportarCSV()">📤 Exportar CSV</button>
+    
 <table id="tablaCobro"></table>
 
 </div>
@@ -226,9 +228,12 @@ ROI: ${(roi*100).toFixed(2)}%
 // ===== COBRANZA =====
 function guardarCobro(){
 
+let eventoSeleccionado = eventos.find(e => String(e.id) === String(eventoSelect.value));
+
 let data = {
 id: Date.now(),
 evento_id: eventoSelect.value,
+evento_nombre: eventoSeleccionado ? eventoSeleccionado.evento : "N/A",
 cliente: cliente.value,
 monto: num(monto.value),
 dias: num(dias.value)
@@ -240,6 +245,16 @@ localStorage.setItem("cobranza", JSON.stringify(cobranza));
 renderCobro();
 }
 
+// ===== ELIMINAR COBRO =====
+function eliminarCobro(id){
+
+cobranza = cobranza.filter(c => c.id != id);
+
+localStorage.setItem("cobranza", JSON.stringify(cobranza));
+
+renderCobro();
+}
+    
 function renderCobro(){
 
 let id = eventoSelect.value;
@@ -248,9 +263,11 @@ let data = cobranza.filter(c => String(c.evento_id) === String(id));
 
 tablaCobro.innerHTML = `
 <tr>
+<th>Evento</th>
 <th>Cliente</th>
 <th>Monto</th>
 <th>Días</th>
+<th></th>
 </tr>
 `;
 
@@ -264,9 +281,11 @@ if(c.dias > 60) vencido += c.monto;
 
 tablaCobro.innerHTML += `
 <tr>
+<td>${c.evento_nombre}</td>
 <td>${c.cliente}</td>
 <td>$${c.monto.toLocaleString()}</td>
 <td>${c.dias}</td>
+<td><button class="delete" onclick="eliminarCobro(${c.id})">🗑</button></td>
 </tr>
 `;
 });
@@ -280,6 +299,46 @@ kpisCobro.innerHTML = `
 `;
 }
 
+    // ===== EXPORTAR CSV =====
+function exportarCSV(){
+
+let data = cobranza;
+
+if(data.length === 0){
+alert("No hay datos");
+return;
+}
+
+// encabezados
+let headers = ["Evento","Cliente","Monto","Días"];
+
+// construir CSV
+let csv = headers.join(",") + "\n";
+
+data.forEach(c=>{
+
+let row = [
+c.evento_nombre,
+c.cliente,
+c.monto.toLocaleString(),
+c.dias
+];
+
+csv += row.map(v => `"${v}"`).join(",") + "\n";
+
+});
+
+// descarga
+let blob = new Blob([csv], { type: 'text/csv' });
+let url = URL.createObjectURL(blob);
+
+let a = document.createElement("a");
+a.href = url;
+a.download = "cobranza_eventos.csv";
+a.click();
+
+}
+    
 // ===== RENDER TODO =====
 function renderTodo(){
 renderPipeline();
