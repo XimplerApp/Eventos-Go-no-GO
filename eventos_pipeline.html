@@ -76,7 +76,7 @@ th, td {
 <h2>💰 Cobranza</h2>
 
 <input id="cliente" placeholder="Cliente">
-<input id="monto" placeholder="Monto">
+<input id="monto" placeholder="Monto" oninput="formatearNumero(this)">
 <input id="dias" placeholder="Días vencidos">
 
 <button class="save" onclick="guardarCobro()">Agregar</button>
@@ -94,6 +94,17 @@ let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
 let leads = JSON.parse(localStorage.getItem("leads")) || [];
 let cobranza = JSON.parse(localStorage.getItem("cobranza")) || [];
 
+// ===== HELPERS NUMÉRICOS =====
+function num(valor){
+    if(!valor) return 0;
+    return parseFloat(valor.replace(/,/g,'')) || 0;
+}
+    function formatearNumero(input){
+    let valor = input.value.replace(/,/g,'');
+    if(!isNaN(valor) && valor !== ""){
+        input.value = Number(valor).toLocaleString();
+    }
+}
 // ===== CARGAR EVENTOS =====
 function cargarEventos(){
 
@@ -219,8 +230,8 @@ let data = {
 id: Date.now(),
 evento_id: eventoSelect.value,
 cliente: cliente.value,
-monto: +monto.value || 0,
-dias: +dias.value || 0
+monto: num(monto.value),
+dias: num(dias.value)
 };
 
 cobranza.push(data);
