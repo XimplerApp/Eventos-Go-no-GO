@@ -228,12 +228,12 @@ ROI: ${(roi*100).toFixed(2)}%
 // ===== COBRANZA =====
 function guardarCobro(){
 
-let eventoSeleccionado = eventos.find(e => String(e.id) === String(eventoSelect.value));
+let textoEvento = eventoSelect.options[eventoSelect.selectedIndex].text;
 
 let data = {
 id: Date.now(),
 evento_id: eventoSelect.value,
-evento_nombre: eventoSeleccionado ? eventoSeleccionado.evento : "N/A",
+evento_nombre: textoEvento,
 cliente: cliente.value,
 monto: num(monto.value),
 dias: num(dias.value)
