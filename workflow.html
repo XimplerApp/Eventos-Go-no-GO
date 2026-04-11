@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Workflow Operativo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
+h1 {color:#38bdf8;}
+
+.card {
+  background:#1e293b;
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:15px;
+}
+
+select, input {
+  width:100%;
+  padding:8px;
+  margin:5px 0;
+  border-radius:6px;
+  border:none;
+}
+
+button {
+  padding:8px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+}
+
+.save {background:#22c55e;}
+.delete {background:#ef4444;}
+
+.kpi {margin:5px 0;}
+
+.green {color:#22c55e;}
+.red {color:#ef4444;}
+.yellow {color:#facc15;}
+
+.badge {
+  padding:5px 10px;
+  border-radius:6px;
+  font-size:12px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- MENU -->
+<div style="display:flex; gap:10px; margin-bottom:20px;">
+  <a href="index.html"><button>📋 Ensayos</button></a>
+  <a href="pipeline.html"><button>🌱 Pipeline</button></a>
+  <a href="workflow.html"><button>⚙️ Workflow</button></a>
+</div>
+
+<h1>⚙️ Workflow Operativo (Eventos → Lead → Cobro)</h1>
+
+<!-- FORM -->
+<div class="card">
+
+<h2>Nuevo Flujo</h2>
+
+<select id="evento"></select>
+
+<select id="etapa">
+<option>Solicitud</option>
+<option>Aprobado</option>
+<option>Evento Ejecutado</option>
+<option>Lead Generado</option>
+<option>Contactado</option>
+<option>Cotización</option>
+<option>Venta</option>
+<option>Cobrado</option>
+</select>
+
+<input id="responsable" placeholder="Responsable">
+
+<button class="save" onclick="guardar()">Guardar</button>
+
+</div>
+
+<!-- KPI SLA -->
+<div class="card">
+
+<h2>⏱ SLA</h2>
+
+<div id="kpis"></div>
+
+</div>
+
+<!-- LISTA -->
+<div class="card">
+
+<h2>Flujos Registrados</h2>
+
+<div id="lista"></div>
+
+</div>
+
+<script>
+
+// ===== DATA =====
+let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
+let workflow = JSON.parse(localStorage.getItem("workflow")) || [];
+
+// ===== CARGAR EVENTOS =====
+function cargarEventos(){
+
+  evento.innerHTML="";
+
+  eventos.forEach(e=>{
+    evento.innerHTML += `
+    <option value="${e.id}">
+    ${e.nombre || "Evento"} - ${e.id}
+    </option>`;
+  });
+}
+
+// ===== GUARDAR =====
+function guardar(){
+
+  let data = {
+    id: Date.now(),
+    evento: evento.value,
+    etapa: etapa.value,
+    responsable: responsable.value,
+    fecha: new Date().getTime()
+  };
+
+  workflow.push(data);
+  localStorage.setItem("workflow", JSON.stringify(workflow));
+
+  render();
+}
+
+// ===== SLA =====
+function evaluarSLA(reg){
+
+  let hoy = new Date().getTime();
+  let dias = (hoy - reg.fecha) / (1000*60*60*24);
+
+  if(reg.etapa === "Solicitud" && dias > 14){
+    return `<span class="badge red">🔴 Fuera SLA</span>`;
+  }
+
+  if(reg.etapa === "Lead Generado" && dias > 2){
+    return `<span class="badge red">🔴 Sin contacto</span>`;
+  }
+
+  if(reg.etapa === "Contactado" && dias > 7){
+    return `<span class="badge yellow">🟡 Seguimiento lento</span>`;
+  }
+
+  return `<span class="badge green">🟢 OK</span>`;
+}
+
+// ===== KPI =====
+function calcularKPIs(){
+
+  let total = workflow.length;
+
+  let fueraSLA = workflow.filter(w=>{
+    let dias = (Date.now() - w.fecha)/(1000*60*60*24);
+
+    return (
+      (w.etapa==="Solicitud" && dias>14) ||
+      (w.etapa==="Lead Generado" && dias>2) ||
+      (w.etapa==="Contactado" && dias>7)
+    );
+  }).length;
+
+  let cumplimiento = total ? ((total - fueraSLA)/total)*100 : 0;
+
+  kpis.innerHTML = `
+  <div class="kpi">Total flujos: ${total}</div>
+  <div class="kpi">Fuera SLA: ${fueraSLA}</div>
+  <div class="kpi ${cumplimiento>80?"green":"red"}">
+  Cumplimiento SLA: ${cumplimiento.toFixed(2)}%
+  </div>
+  `;
+}
+
+// ===== RENDER =====
+function render(){
+
+  lista.innerHTML="";
+
+  workflow.slice().reverse().forEach(w=>{
+
+    let e = eventos.find(x=>x.id==w.evento) || {};
+
+    lista.innerHTML += `
+    <div class="card">
+
+      <h3>${e.nombre || "Evento"} | ${w.etapa}</h3>
+
+      <p>Responsable: ${w.responsable}</p>
+      <p>${new Date(w.fecha).toLocaleString()}</p>
+
+      <p>${evaluarSLA(w)}</p>
+
+      <button class="delete" onclick="eliminar(${w.id})">🗑</button>
+
+    </div>
+    `;
+  });
+
+  calcularKPIs();
+}
+
+// ===== ELIMINAR =====
+function eliminar(id){
+  workflow = workflow.filter(w=>w.id!=id);
+  localStorage.setItem("workflow", JSON.stringify(workflow));
+  render();
+}
+
+// INIT
+cargarEventos();
+render();
+
+</script>
+
+</body>
+</html>
