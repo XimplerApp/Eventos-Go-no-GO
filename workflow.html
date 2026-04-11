@@ -77,6 +77,8 @@ button {
 </select>
 
 <input id="responsable" placeholder="Responsable">
+<label>Fecha (opcional)</label>
+<input type="date" id="fechaManual">
 
 <button class="save" onclick="guardar()">Guardar</button>
 
@@ -122,12 +124,16 @@ function cargarEventos(){
 // ===== GUARDAR =====
 function guardar(){
 
+  let fechaVal = fechaManual.value 
+    ? new Date(fechaManual.value).getTime() 
+    : Date.now();
+
   let data = {
     id: Date.now(),
     evento: evento.value,
     etapa: etapa.value,
     responsable: responsable.value,
-    fecha: new Date().getTime()
+    fecha: fechaVal
   };
 
   workflow.push(data);
@@ -160,23 +166,42 @@ function evaluarSLA(reg){
 // ===== KPI =====
 function calcularKPIs(){
 
-  let total = workflow.length;
+  let eventosMap = {};
 
-  let fueraSLA = workflow.filter(w=>{
-    let dias = (Date.now() - w.fecha)/(1000*60*60*24);
+  // agrupar por evento
+  workflow.forEach(w=>{
+    if(!eventosMap[w.evento]){
+      eventosMap[w.evento] = [];
+    }
+    eventosMap[w.evento].push(w);
+  });
 
-    return (
-      (w.etapa==="Solicitud" && dias>14) ||
-      (w.etapa==="Lead Generado" && dias>2) ||
-      (w.etapa==="Contactado" && dias>7)
-    );
-  }).length;
+  let totalEventos = Object.keys(eventosMap).length;
+  let fueraSLA = 0;
 
-  let cumplimiento = total ? ((total - fueraSLA)/total)*100 : 0;
+  Object.values(eventosMap).forEach(flujo=>{
+
+    flujo.forEach(reg=>{
+
+      let dias = (Date.now() - reg.fecha)/(1000*60*60*24);
+
+      if(
+        (reg.etapa==="Solicitud" && dias>14) ||
+        (reg.etapa==="Lead Generado" && dias>2) ||
+        (reg.etapa==="Contactado" && dias>7)
+      ){
+        fueraSLA++;
+      }
+
+    });
+
+  });
+
+  let cumplimiento = totalEventos ? ((totalEventos - fueraSLA)/totalEventos)*100 : 0;
 
   kpis.innerHTML = `
-  <div class="kpi">Total flujos: ${total}</div>
-  <div class="kpi">Fuera SLA: ${fueraSLA}</div>
+  <div class="kpi">Eventos activos: ${totalEventos}</div>
+  <div class="kpi">Eventos con fallas SLA: ${fueraSLA}</div>
   <div class="kpi ${cumplimiento>80?"green":"red"}">
   Cumplimiento SLA: ${cumplimiento.toFixed(2)}%
   </div>
