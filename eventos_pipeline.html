@@ -1,356 +1,1050 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<title>Eventos → Pipeline → Cobro (Integrado)</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>Eventos → Pipeline → Cobro | Galera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<style>
-body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
-h1 {color:#38bdf8;}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-.card {background:#1e293b; padding:20px; border-radius:10px; margin-bottom:20px;}
-
-select, input {
-    width:100%;
-    padding:10px;
-    margin:6px 0;
-    border-radius:6px;
-    border:none;
-}
-
-button {
-    padding:8px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-}
-
-.save {background:#22c55e;}
-.delete {background:#ef4444;}
-
-.kpi {margin:5px 0;}
-
-.green {color:#22c55e;}
-.red {color:#ef4444;}
-.yellow {color:#facc15;}
-
-table {
-    width:100%;
-    border-collapse: collapse;
-    text-align:center;
-}
-
-th, td {
-    padding:10px;
-    border-bottom:1px solid #334155;
-}
-</style>
-</head>
-
-<body>
-
-<h1>🚀 EVENTOS → PIPELINE → COBRO</h1>
-
-<!-- ================= EVENTO SELECT ================= -->
-<div class="card">
-<h2>🎯 Seleccionar Evento</h2>
-
-<select id="eventoSelect" onchange="renderTodo()"></select>
-
-</div>
-
-<!-- ================= KPIs EVENTO ================= -->
-<div class="card">
-<h2>📊 KPIs del Evento</h2>
-<div id="kpis"></div>
-</div>
-
-<!-- ================= PIPELINE ================= -->
-<div class="card">
-<h2>📈 Pipeline (automático desde Leads)</h2>
-<table id="tablaPipeline"></table>
-</div>
-
-<!-- ================= COBRANZA ================= -->
-<div class="card">
-<h2>💰 Cobranza</h2>
-
-<input id="cliente" placeholder="Cliente">
-<input id="monto" placeholder="Monto">
-<input id="dias" placeholder="Días vencidos">
-
-<button class="save" onclick="guardarCobro()">Agregar</button>
-
-<div id="kpisCobro"></div>
-    
-<button onclick="exportarCSV()">📤 Exportar CSV</button>
-    
-<table id="tablaCobro"></table>
-
-</div>
-
-<script>
-
-// ===== DATA GLOBAL =====
-let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
-let leads = JSON.parse(localStorage.getItem("leads")) || [];
-let cobranza = JSON.parse(localStorage.getItem("cobranza")) || [];
-
-// ===== HELPERS NUMÉRICOS =====
-function num(valor){
-    if(!valor) return 0;
-    return parseFloat(valor.replace(/,/g,'')) || 0;
-}
-    function formatearNumero(input){
-    let valor = input.value.replace(/,/g,'');
-    if(!isNaN(valor) && valor !== ""){
-        input.value = Number(valor).toLocaleString();
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --card2:#172033;
+      --text:#ffffff;
+      --muted:#cbd5e1;
+      --primary:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --red:#ef4444;
+      --border:#334155;
     }
-}
-// ===== CARGAR EVENTOS =====
-function cargarEventos(){
 
-eventoSelect.innerHTML = "";
-
-eventos.forEach(e=>{
-eventoSelect.innerHTML += `
-<option value="${e.id}">
-${e.evento} | ${e.cultivo} | ${e.zona}
-</option>`;
-});
-
-}
-
-// ===== FILTRAR LEADS POR EVENTO =====
-function getLeadsEvento(){
-
-let id = eventoSelect.value;
-
-return leads.filter(l =>
-String(l.evento_id) === String(id)
-);
-
-}
-
-// ===== PIPELINE AUTOMÁTICO =====
-function renderPipeline(){
-
-let data = getLeadsEvento();
-
-let etapas = {
-"Lead":0,
-"Contactado":0,
-"Cotización":0,
-"Orden":0
-};
-
-let montoPipeline = 0;
-let ventas = 0;
-
-data.forEach(l=>{
-
-let estado = l.interes || "Lead";
-
-if(etapas[estado] !== undefined){
-etapas[estado]++;
-}
-
-montoPipeline += l.ticket || 0;
-
-if(estado === "Orden"){
-ventas += l.ticket || 0;
-}
-
-});
-
-// TABLA
-tablaPipeline.innerHTML = `
-<tr>
-<th>Etapa</th>
-<th>#</th>
-</tr>
-`;
-
-Object.keys(etapas).forEach(e=>{
-tablaPipeline.innerHTML += `
-<tr>
-<td>${e}</td>
-<td>${etapas[e]}</td>
-</tr>
-`;
-});
-
-return {etapas, montoPipeline, ventas};
-
-}
-
-// ===== KPIs =====
-function renderKPIs(){
-
-let evento = eventos.find(e => String(e.id) === String(eventoSelect.value));
-
-if(!evento) return;
-
-let data = getLeadsEvento();
-
-let totalLeads = data.length;
-
-let pipelineData = renderPipeline();
-
-let ordenes = pipelineData.etapas["Orden"] || 0;
-
-let conversion = totalLeads ? (ordenes / totalLeads)*100 : 0;
-
-let cpl = totalLeads ? evento.costo / totalLeads : 0;
-
-let roi = evento.costo ? (pipelineData.ventas - evento.costo) / evento.costo : 0;
-
-kpis.innerHTML = `
-<div class="kpi">Leads: ${totalLeads}</div>
-<div class="kpi">Pipeline: $${pipelineData.montoPipeline.toLocaleString()}</div>
-<div class="kpi">Ventas (Órdenes): $${pipelineData.ventas.toLocaleString()}</div>
-
-<div class="kpi ${conversion>=20?'green':'red'}">
-Conversión: ${conversion.toFixed(2)}%
-</div>
-
-<div class="kpi ${cpl<=1500?'green':'red'}">
-CPL: $${cpl.toLocaleString()}
-</div>
-
-<div class="kpi ${roi>=0.3?'green':'red'}">
-ROI: ${(roi*100).toFixed(2)}%
-</div>
-`;
-
-}
-
-// ===== COBRANZA =====
-function guardarCobro(){
-
-let textoEvento = eventoSelect.options[eventoSelect.selectedIndex].text;
-
-let data = {
-id: Date.now(),
-evento_id: eventoSelect.value,
-evento_nombre: textoEvento,
-cliente: cliente.value,
-monto: num(monto.value),
-dias: num(dias.value)
-};
-
-cobranza.push(data);
-localStorage.setItem("cobranza", JSON.stringify(cobranza));
-
-renderCobro();
-}
-
-// ===== ELIMINAR COBRO =====
-function eliminarCobro(id){
-
-cobranza = cobranza.filter(c => c.id != id);
-
-localStorage.setItem("cobranza", JSON.stringify(cobranza));
-
-renderCobro();
-}
-    
-function renderCobro(){
-
-let id = eventoSelect.value;
-
-let data = cobranza.filter(c => String(c.evento_id) === String(id));
-
-tablaCobro.innerHTML = `
-<tr>
-<th>Evento</th>
-<th>Cliente</th>
-<th>Monto</th>
-<th>Días</th>
-<th></th>
-</tr>
-`;
-
-let total = 0;
-let vencido = 0;
-
-data.forEach(c=>{
-
-total += c.monto;
-if(c.dias > 60) vencido += c.monto;
-
-tablaCobro.innerHTML += `
-<tr>
-<td>${c.evento_nombre}</td>
-<td>${c.cliente}</td>
-<td>$${c.monto.toLocaleString()}</td>
-<td>${c.dias}</td>
-<td><button class="delete" onclick="eliminarCobro(${c.id})">🗑</button></td>
-</tr>
-`;
-});
-
-let porcentaje = total ? (vencido/total)*100 : 0;
-
-kpisCobro.innerHTML = `
-<div class="kpi ${porcentaje<=10?'green':'red'}">
-% Cartera >60 días: ${porcentaje.toFixed(2)}%
-</div>
-`;
-}
-
-    // ===== EXPORTAR CSV =====
-function exportarCSV(){
-
-let data = cobranza;
-
-if(data.length === 0){
-alert("No hay datos");
-return;
-}
-
-// encabezados
-let headers = ["Evento","Cliente","Monto","Días"];
-
-// construir CSV
-let csv = headers.join(",") + "\n";
-
-data.forEach(c=>{
-
-let row = [
-c.evento_nombre,
-c.cliente,
-c.monto.toLocaleString(),
-c.dias
-];
-
-csv += row.map(v => `"${v}"`).join(",") + "\n";
-
-});
-
-// descarga
-let blob = new Blob([csv], { type: 'text/csv' });
-let url = URL.createObjectURL(blob);
-
-let a = document.createElement("a");
-a.href = url;
-a.download = "cobranza_eventos.csv";
-a.click();
-
-}
-    
-// ===== RENDER TODO =====
-function renderTodo(){
-renderPipeline();
-renderKPIs();
-renderCobro();
-}
-
-// ===== INIT =====
-cargarEventos();
-renderTodo();
-
-</script>
-
+    *{box-sizing:border-box;}
+
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      padding:20px;
+    }
+
+    .container{
+      max-width:1250px;
+      margin:auto;
+    }
+
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:20px;
+    }
+
+    .topbar a{text-decoration:none;}
+
+    .topbar button{
+      width:auto;
+      margin:0;
+      padding:10px 14px;
+      background:#172033;
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+
+    h1{
+      color:var(--primary);
+      margin:0 0 10px 0;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      margin:0 0 18px 0;
+      line-height:1.5;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      padding:20px;
+      border-radius:14px;
+      margin-bottom:18px;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    h2{
+      margin-top:0;
+      color:var(--primary);
+      font-size:20px;
+    }
+
+    .help{
+      font-size:13px;
+      color:var(--muted);
+      margin:-2px 0 12px 0;
+      line-height:1.45;
+    }
+
+    label{
+      display:block;
+      margin-top:10px;
+      margin-bottom:4px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    input, select, textarea{
+      width:100%;
+      padding:10px;
+      margin:4px 0 8px 0;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:#0f172a;
+      color:var(--text);
+      outline:none;
+    }
+
+    input:focus, select:focus, textarea:focus{
+      border-color:var(--primary);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2, 1fr);
+      gap:12px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+    }
+
+    .grid-4{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    .grid-5{
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:12px;
+    }
+
+    button{
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      width:100%;
+      margin-top:10px;
+      font-weight:bold;
+    }
+
+    .btn-primary{background:var(--primary); color:#062033;}
+    .btn-success{background:var(--green); color:#04230c;}
+    .btn-secondary{background:#64748b; color:white;}
+    .btn-danger{background:var(--red); color:white;}
+    .btn-warning{background:var(--yellow); color:#3f3300;}
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:14px;
+    }
+
+    .kpi-card{
+      background:#172033;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+    }
+
+    .kpi-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+      line-height:1.4;
+    }
+
+    .kpi-value{
+      font-size:23px;
+      font-weight:bold;
+    }
+
+    .green{color:var(--green);}
+    .yellow{color:var(--yellow);}
+    .red{color:var(--red);}
+    .muted{color:var(--muted);}
+
+    .notice{
+      padding:12px 14px;
+      border-radius:12px;
+      background:#172033;
+      border:1px solid var(--border);
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      text-align:center;
+      margin-top:10px;
+    }
+
+    th, td{
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      font-size:14px;
+      vertical-align:middle;
+    }
+
+    th{
+      background:#172033;
+      color:var(--primary);
+    }
+
+    .table-actions{
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .table-actions button{
+      width:auto;
+      margin:0;
+      padding:8px 10px;
+      font-size:12px;
+      border-radius:7px;
+    }
+
+    .pill{
+      display:inline-block;
+      padding:5px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:bold;
+    }
+
+    .pill-green{background:rgba(34,197,94,.15); color:var(--green);}
+    .pill-yellow{background:rgba(250,204,21,.15); color:var(--yellow);}
+    .pill-red{background:rgba(239,68,68,.15); color:var(--red);}
+    .pill-blue{background:rgba(56,189,248,.15); color:var(--primary);}
+
+    .summary-box{
+      padding:14px;
+      border-radius:12px;
+      background:#172033;
+      border:1px solid var(--border);
+      line-height:1.45;
+      margin-top:10px;
+    }
+
+    @media (max-width: 1050px){
+      .grid-2, .grid-3, .grid-4, .grid-5, .actions, .kpi-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="topbar">
+      <a href="index.html"><button type="button">🏠 Inicio</button></a>
+      <a href="scorecard.html"><button type="button">📊 Scorecard</button></a>
+      <a href="leads.html"><button type="button">📋 Leads</button></a>
+      <a href="workflow.html"><button type="button">⚙️ Workflow</button></a>
+    </div>
+
+    <h1>📈 Eventos → Pipeline → Cobro</h1>
+    <p class="subtitle">
+      Este módulo ya usa la estructura nueva del sistema: eventos aprobados, leads por `evento_id`,
+      etapas reales del funnel y un bloque de cobranza separado para visibilidad financiera.
+    </p>
+
+    <div class="card">
+      <h2>🎯 Seleccionar evento aprobado</h2>
+      <div class="help">
+        Solo aparecen eventos aprobados en el Scorecard. Al cambiar el evento se recalculan todos los KPIs.
+      </div>
+      <select id="eventoSelect" onchange="renderTodo()"></select>
+      <div id="estadoSistema" class="notice" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Resumen ejecutivo del evento</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Costo del evento</div>
+          <div class="kpi-value" id="kpiCosto">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ventas proyectadas Scorecard</div>
+          <div class="kpi-value" id="kpiVentasEsperadas">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">ROI proyectado Scorecard</div>
+          <div class="kpi-value" id="kpiRoiEsperado">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Leads esperados Scorecard</div>
+          <div class="kpi-value" id="kpiLeadsEsperados">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">ROI mínimo requerido</div>
+          <div class="kpi-value" id="kpiRoiMin">0%</div>
+        </div>
+      </div>
+
+      <div id="resumenEvento" class="summary-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>🚀 KPIs del funnel y resultado comercial</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Leads capturados</div>
+          <div class="kpi-value" id="kpiLeads">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pipeline activo</div>
+          <div class="kpi-value" id="kpiPipelineActivo">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Ventas comprometidas</div>
+          <div class="kpi-value" id="kpiVentasComprometidas">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Conversión a orden</div>
+          <div class="kpi-value" id="kpiConversion">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">CPL real</div>
+          <div class="kpi-value" id="kpiCpl">$0</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" style="margin-top:14px;">
+        <div class="kpi-card">
+          <div class="kpi-label">ROI sobre ventas comprometidas</div>
+          <div class="kpi-value" id="kpiRoiVentas">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cobrado registrado</div>
+          <div class="kpi-value" id="kpiCobrado">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">ROI sobre cobrado</div>
+          <div class="kpi-value" id="kpiRoiCobrado">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">% 1er contacto ≤ 48h</div>
+          <div class="kpi-value" id="kpi48h">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">% 2 toques ≤ 7 días</div>
+          <div class="kpi-value" id="kpi7d">0%</div>
+        </div>
+      </div>
+
+      <div id="kpiNotas" class="summary-box"></div>
+    </div>
+
+    <div class="card">
+      <h2>📈 Pipeline automático desde Leads</h2>
+      <div class="help">
+        Este embudo se alimenta de `etapa_funnel` en `leads.html`. Ya no usa la lógica vieja de `interes`.
+      </div>
+      <table id="tablaPipeline"></table>
+    </div>
+
+    <div class="card">
+      <h2>💰 Cobranza del evento</h2>
+      <div class="help">
+        Registra cuentas por cobrar asociadas al evento para medir cartera, cobrado y disciplina financiera.
+      </div>
+
+      <div class="grid-4">
+        <div>
+          <label>Cliente</label>
+          <input id="cliente" placeholder="Nombre del cliente" />
+        </div>
+        <div>
+          <label>Monto</label>
+          <input id="monto" placeholder="0" />
+        </div>
+        <div>
+          <label>Días vencidos</label>
+          <input id="dias" placeholder="0" />
+        </div>
+        <div>
+          <label>Estatus</label>
+          <select id="estatusCobro">
+            <option>Pendiente</option>
+            <option>Promesa de pago</option>
+            <option>Parcial</option>
+            <option>Cobrado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label>Fecha compromiso</label>
+          <input type="date" id="fechaCompromiso" />
+        </div>
+        <div>
+          <label>Fecha pago</label>
+          <input type="date" id="fechaPago" />
+        </div>
+        <div>
+          <label>Notas</label>
+          <input id="notaCobro" placeholder="Observación breve" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-success" onclick="guardarCobro()">💾 Guardar cobranza</button>
+        <button type="button" class="btn-secondary" onclick="limpiarCobro()">🧹 Limpiar</button>
+        <button type="button" class="btn-primary" onclick="exportarExcel()">📤 Exportar Excel</button>
+        <button type="button" class="btn-warning" onclick="renderTodo()">🔄 Actualizar</button>
+      </div>
+
+      <div class="kpi-grid" style="margin-top:14px;">
+        <div class="kpi-card">
+          <div class="kpi-label">Cartera total</div>
+          <div class="kpi-value" id="kpiCarteraTotal">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cartera abierta</div>
+          <div class="kpi-value" id="kpiCarteraAbierta">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">% cartera > 60 días</div>
+          <div class="kpi-value" id="kpiCartera60">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Promesas emitidas</div>
+          <div class="kpi-value" id="kpiPromesas">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PTP kept</div>
+          <div class="kpi-value" id="kpiPTP">0%</div>
+        </div>
+      </div>
+
+      <table id="tablaCobro"></table>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_EVENTOS = "eventos";
+    const STORAGE_LEADS = "leads";
+    const STORAGE_COBRANZA = "cobranza";
+
+    const ETAPAS = [
+      "Capturado",
+      "1er contacto",
+      "2do contacto",
+      "Demo / Visita",
+      "Cotización",
+      "Negociación",
+      "Orden",
+      "Entrega",
+      "Factura",
+      "Cobrado",
+      "Perdido"
+    ];
+
+    const ETAPAS_PIPELINE_ACTIVO = [
+      "Capturado",
+      "1er contacto",
+      "2do contacto",
+      "Demo / Visita",
+      "Cotización",
+      "Negociación"
+    ];
+
+    const ETAPAS_VENTA = [
+      "Orden",
+      "Entrega",
+      "Factura",
+      "Cobrado"
+    ];
+
+    let eventos = [];
+    let leads = [];
+    let cobranza = [];
+    let editCobroId = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function leerLS(key){
+      try{
+        return JSON.parse(localStorage.getItem(key)) || [];
+      }catch(e){
+        return [];
+      }
+    }
+
+    function guardarLS(key, value){
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function num(value){
+      if(value === null || value === undefined || value === "") return 0;
+      return parseFloat(String(value).replace(/[^0-9.-]/g, "")) || 0;
+    }
+
+    function money(value){
+      return "$" + Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+
+    function pctDecimal(value){
+      return Number((value || 0) * 100).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + "%";
+    }
+
+    function pctNumber(value){
+      return Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + "%";
+    }
+
+    function diasEntre(fechaInicio, fechaFin){
+      if(!fechaInicio || !fechaFin) return null;
+      const ini = new Date(fechaInicio + "T00:00:00");
+      const fin = new Date(fechaFin + "T00:00:00");
+      return Math.round((fin - ini) / (1000 * 60 * 60 * 24));
+    }
+
+    function cargarDatos(){
+      const todosEventos = leerLS(STORAGE_EVENTOS);
+      leads = leerLS(STORAGE_LEADS);
+      cobranza = leerLS(STORAGE_COBRANZA);
+
+      eventos = todosEventos.filter(e =>
+        e.aprobado_para_ejecucion === true ||
+        String(e.decision || "").toUpperCase() === "GO"
+      );
+    }
+
+    function normalizarEtapa(lead){
+      if(lead.etapa_funnel) return lead.etapa_funnel;
+
+      const vieja = String(lead.interes || "").trim();
+
+      if(vieja === "Cotización") return "Cotización";
+      if(vieja === "Compra directa") return "Orden";
+      if(vieja === "Ensayo") return "Demo / Visita";
+
+      return "Capturado";
+    }
+
+    function normalizarLead(lead){
+      return {
+        ...lead,
+        etapa_normalizada: normalizarEtapa(lead),
+        ticket_normalizado: num(lead.ticket),
+        fecha_captura_iso: lead.fecha_captura_iso || "",
+        fecha1: lead.fecha1 || "",
+        fecha2: lead.fecha2 || ""
+      };
+    }
+
+    function normalizarCobro(c){
+      return {
+        ...c,
+        monto: num(c.monto),
+        dias: num(c.dias),
+        estatus: c.estatus || "Pendiente",
+        fecha_compromiso: c.fecha_compromiso || "",
+        fecha_pago: c.fecha_pago || "",
+        nota: c.nota || ""
+      };
+    }
+
+    function cargarEventos(){
+      const select = $("eventoSelect");
+      select.innerHTML = "";
+
+      if(eventos.length === 0){
+        select.innerHTML = `<option value="">No hay eventos aprobados</option>`;
+        $("estadoSistema").innerHTML = `
+          <strong class="red">No hay eventos aprobados disponibles.</strong><br>
+          Primero aprueba eventos en <b>scorecard.html</b> para poder analizar pipeline y cobranza.
+        `;
+        return;
+      }
+
+      eventos.forEach(e => {
+        select.innerHTML += `
+          <option value="${e.id}">
+            ${e.evento} | ${e.cultivo} | ${e.zona}
+          </option>
+        `;
+      });
+
+      $("estadoSistema").innerHTML = `
+        <strong class="green">Sistema listo.</strong><br>
+        Solo se muestran eventos aprobados para mantener trazabilidad comercial correcta.
+      `;
+    }
+
+    function getEventoActual(){
+      const id = $("eventoSelect").value;
+      return eventos.find(e => String(e.id) === String(id));
+    }
+
+    function getLeadsEvento(){
+      const id = $("eventoSelect").value;
+      return leads
+        .filter(l => String(l.evento_id) === String(id))
+        .map(normalizarLead);
+    }
+
+    function getCobranzaEvento(){
+      const id = $("eventoSelect").value;
+      return cobranza
+        .filter(c => String(c.evento_id) === String(id))
+        .map(normalizarCobro);
+    }
+
+    function renderResumenEvento(){
+      const evento = getEventoActual();
+
+      if(!evento){
+        $("kpiCosto").textContent = "$0";
+        $("kpiVentasEsperadas").textContent = "$0";
+        $("kpiRoiEsperado").textContent = "0%";
+        $("kpiLeadsEsperados").textContent = "0";
+        $("kpiRoiMin").textContent = "0%";
+        $("resumenEvento").innerHTML = `<span class="muted">No hay evento seleccionado.</span>`;
+        return;
+      }
+
+      const roiEsperado = evento.costo ? (num(evento.ventas) - num(evento.costo)) / num(evento.costo) : 0;
+      const score = num(evento.score);
+      const decision = String(evento.decision || "").toUpperCase();
+
+      $("kpiCosto").textContent = money(evento.costo);
+      $("kpiVentasEsperadas").textContent = money(evento.ventas);
+      $("kpiRoiEsperado").textContent = pctDecimal(roiEsperado);
+      $("kpiLeadsEsperados").textContent = Number(evento.leads || 0).toLocaleString("es-MX");
+      $("kpiRoiMin").textContent = pctDecimal(evento.roiMin || 0);
+
+      $("resumenEvento").innerHTML = `
+        <div><strong>Evento:</strong> ${evento.evento}</div>
+        <div><strong>Tipo:</strong> ${evento.tipo || "-"}</div>
+        <div><strong>Cultivo / Zona:</strong> ${evento.cultivo || "-"} / ${evento.zona || "-"}</div>
+        <div><strong>Objetivo:</strong> ${evento.objetivo || "-"}</div>
+        <div><strong>Responsable:</strong> ${evento.responsable || "-"}</div>
+        <div style="margin-top:8px;">
+          <span class="pill ${decision === 'GO' ? 'pill-green' : 'pill-red'}">${decision || '-'}</span>
+          <span class="pill ${score >= 75 ? 'pill-green' : 'pill-red'}">Score: ${score}/100</span>
+        </div>
+      `;
+    }
+
+    function calcularResumenPipeline(){
+      const data = getLeadsEvento();
+
+      const etapas = {};
+      ETAPAS.forEach(e => {
+        etapas[e] = { cantidad: 0, monto: 0 };
+      });
+
+      let totalLeads = data.length;
+      let pipelineActivo = 0;
+      let ventasComprometidas = 0;
+      let ordenes = 0;
+
+      let contacto48 = 0;
+      let dosToques7d = 0;
+
+      data.forEach(l => {
+        const etapa = ETAPAS.includes(l.etapa_normalizada) ? l.etapa_normalizada : "Capturado";
+        const ticket = l.ticket_normalizado;
+
+        etapas[etapa].cantidad++;
+        etapas[etapa].monto += ticket;
+
+        if(ETAPAS_PIPELINE_ACTIVO.includes(etapa)) pipelineActivo += ticket;
+        if(ETAPAS_VENTA.includes(etapa)) ventasComprometidas += ticket;
+        if(etapa === "Orden") ordenes++;
+
+        const d1 = diasEntre(l.fecha_captura_iso, l.fecha1);
+        const d2 = diasEntre(l.fecha_captura_iso, l.fecha2);
+
+        if(d1 !== null && d1 >= 0 && d1 <= 2) contacto48++;
+        if(d2 !== null && d2 >= 0 && d2 <= 7) dosToques7d++;
+      });
+
+      return {
+        totalLeads,
+        etapas,
+        pipelineActivo,
+        ventasComprometidas,
+        ordenes,
+        contacto48,
+        dosToques7d
+      };
+    }
+
+    function renderPipeline(){
+      const resumen = calcularResumenPipeline();
+
+      $("tablaPipeline").innerHTML = `
+        <tr>
+          <th>Etapa</th>
+          <th># Leads</th>
+          <th>Monto estimado</th>
+          <th>% del total</th>
+        </tr>
+        ${ETAPAS.map(etapa => {
+          const item = resumen.etapas[etapa];
+          const porcentaje = resumen.totalLeads ? (item.cantidad / resumen.totalLeads) * 100 : 0;
+          return `
+            <tr>
+              <td>${etapa}</td>
+              <td>${item.cantidad}</td>
+              <td>${money(item.monto)}</td>
+              <td>${pctNumber(porcentaje)}</td>
+            </tr>
+          `;
+        }).join("")}
+      `;
+    }
+
+    function renderKPIs(){
+      const evento = getEventoActual();
+      const resumen = calcularResumenPipeline();
+      const cobros = getCobranzaEvento();
+
+      const costoEvento = num(evento?.costo);
+      const conversion = resumen.totalLeads ? (resumen.ordenes / resumen.totalLeads) * 100 : 0;
+      const cpl = resumen.totalLeads ? costoEvento / resumen.totalLeads : 0;
+      const roiVentas = costoEvento ? (resumen.ventasComprometidas - costoEvento) / costoEvento : 0;
+
+      const cobradoRegistrado = cobros
+        .filter(c => c.estatus === "Cobrado")
+        .reduce((acc, c) => acc + c.monto, 0);
+
+      const roiCobrado = costoEvento ? (cobradoRegistrado - costoEvento) / costoEvento : 0;
+
+      const pct48 = resumen.totalLeads ? (resumen.contacto48 / resumen.totalLeads) * 100 : 0;
+      const pct7d = resumen.totalLeads ? (resumen.dosToques7d / resumen.totalLeads) * 100 : 0;
+
+      $("kpiLeads").textContent = Number(resumen.totalLeads).toLocaleString("es-MX");
+      $("kpiPipelineActivo").textContent = money(resumen.pipelineActivo);
+      $("kpiVentasComprometidas").textContent = money(resumen.ventasComprometidas);
+      $("kpiConversion").textContent = pctNumber(conversion);
+      $("kpiCpl").textContent = money(cpl);
+
+      $("kpiRoiVentas").textContent = pctDecimal(roiVentas);
+      $("kpiCobrado").textContent = money(cobradoRegistrado);
+      $("kpiRoiCobrado").textContent = pctDecimal(roiCobrado);
+      $("kpi48h").textContent = pctNumber(pct48);
+      $("kpi7d").textContent = pctNumber(pct7d);
+
+      $("kpiConversion").className = `kpi-value ${conversion >= 20 ? 'green' : 'red'}`;
+      $("kpiRoiVentas").className = `kpi-value ${roiVentas >= 0.30 ? 'green' : 'red'}`;
+      $("kpiRoiCobrado").className = `kpi-value ${roiCobrado >= 0.30 ? 'green' : 'red'}`;
+      $("kpi48h").className = `kpi-value ${pct48 >= 90 ? 'green' : 'red'}`;
+      $("kpi7d").className = `kpi-value ${pct7d >= 90 ? 'green' : 'red'}`;
+
+      const notas = [];
+
+      if(resumen.totalLeads === 0){
+        notas.push(`<span class="yellow">⚠️ Este evento aprobado aún no tiene leads capturados.</span>`);
+      } else {
+        if(conversion < 20){
+          notas.push(`<span class="red">⚠️ La conversión a orden está por debajo del umbral sugerido (20%).</span>`);
+        }
+        if(pct48 < 90){
+          notas.push(`<span class="red">⚠️ El primer contacto oportuno está bajo.</span>`);
+        }
+        if(pct7d < 90){
+          notas.push(`<span class="red">⚠️ El segundo toque dentro de 7 días está bajo.</span>`);
+        }
+        if(roiVentas >= 0.30){
+          notas.push(`<span class="green">✅ El ROI sobre ventas comprometidas ya supera el mínimo típico.</span>`);
+        }
+      }
+
+      if(notas.length === 0){
+        notas.push(`<span class="muted">Sin alertas críticas con la información actual.</span>`);
+      }
+
+      $("kpiNotas").innerHTML = notas.join("<br>");
+    }
+
+    function guardarCobro(){
+      const evento = getEventoActual();
+      if(!evento){
+        alert("No hay evento válido seleccionado.");
+        return;
+      }
+
+      const cliente = $("cliente").value.trim();
+      const monto = num($("monto").value);
+      const dias = num($("dias").value);
+      const estatus = $("estatusCobro").value;
+
+      if(!cliente){
+        alert("Captura el cliente.");
+        return;
+      }
+
+      if(monto <= 0){
+        alert("Captura un monto válido.");
+        return;
+      }
+
+      const ahora = new Date().toLocaleString("es-MX");
+
+      const registro = {
+        id: editCobroId || Date.now(),
+        fecha: editCobroId
+          ? (cobranza.find(c => String(c.id) === String(editCobroId))?.fecha || ahora)
+          : ahora,
+        fecha_actualizacion: ahora,
+
+        evento_id: evento.id,
+        evento_nombre: `${evento.evento} | ${evento.cultivo || "-"} | ${evento.zona || "-"}`,
+        cliente,
+        monto,
+        dias,
+        estatus,
+        fecha_compromiso: $("fechaCompromiso").value,
+        fecha_pago: $("fechaPago").value,
+        nota: $("notaCobro").value.trim()
+      };
+
+      if(editCobroId){
+        cobranza = cobranza.map(c => String(c.id) === String(editCobroId) ? registro : c);
+      } else {
+        cobranza.push(registro);
+      }
+
+      guardarLS(STORAGE_COBRANZA, cobranza);
+      limpiarCobro(false);
+      renderTodo();
+    }
+
+    function editarCobro(id){
+      const c = cobranza.find(x => String(x.id) === String(id));
+      if(!c) return;
+
+      editCobroId = c.id;
+      $("cliente").value = c.cliente || "";
+      $("monto").value = c.monto ?? "";
+      $("dias").value = c.dias ?? "";
+      $("estatusCobro").value = c.estatus || "Pendiente";
+      $("fechaCompromiso").value = c.fecha_compromiso || "";
+      $("fechaPago").value = c.fecha_pago || "";
+      $("notaCobro").value = c.nota || "";
+
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    }
+
+    function eliminarCobro(id){
+      if(!confirm("¿Seguro que deseas eliminar este registro de cobranza?")) return;
+      cobranza = cobranza.filter(c => String(c.id) !== String(id));
+      guardarLS(STORAGE_COBRANZA, cobranza);
+      renderTodo();
+    }
+
+    function limpiarCobro(render = true){
+      editCobroId = null;
+      ["cliente","monto","dias","fechaCompromiso","fechaPago","notaCobro"].forEach(id => $(id).value = "");
+      $("estatusCobro").value = "Pendiente";
+      if(render) renderTodo();
+    }
+
+    function renderCobro(){
+      const data = getCobranzaEvento();
+
+      const carteraTotal = data.reduce((acc, c) => acc + c.monto, 0);
+      const carteraAbierta = data
+        .filter(c => c.estatus !== "Cobrado")
+        .reduce((acc, c) => acc + c.monto, 0);
+      const vencida60 = data
+        .filter(c => c.estatus !== "Cobrado" && c.dias > 60)
+        .reduce((acc, c) => acc + c.monto, 0);
+      const promesas = data.filter(c => c.estatus === "Promesa de pago").length;
+      const promesasCumplidas = data.filter(c => c.fecha_compromiso && c.estatus === "Cobrado").length;
+
+      const pct60 = carteraAbierta ? (vencida60 / carteraAbierta) * 100 : 0;
+      const ptp = promesas ? (promesasCumplidas / promesas) * 100 : 0;
+
+      $("kpiCarteraTotal").textContent = money(carteraTotal);
+      $("kpiCarteraAbierta").textContent = money(carteraAbierta);
+      $("kpiCartera60").textContent = pctNumber(pct60);
+      $("kpiPromesas").textContent = Number(promesas).toLocaleString("es-MX");
+      $("kpiPTP").textContent = pctNumber(ptp);
+
+      $("kpiCartera60").className = `kpi-value ${pct60 <= 10 ? 'green' : 'red'}`;
+      $("kpiPTP").className = `kpi-value ${ptp >= 85 ? 'green' : 'red'}`;
+
+      if(data.length === 0){
+        $("tablaCobro").innerHTML = `
+          <tr>
+            <th>No hay registros de cobranza para este evento.</th>
+          </tr>
+        `;
+        return;
+      }
+
+      $("tablaCobro").innerHTML = `
+        <tr>
+          <th>Cliente</th>
+          <th>Monto</th>
+          <th>Días</th>
+          <th>Estatus</th>
+          <th>Compromiso</th>
+          <th>Pago</th>
+          <th>Notas</th>
+          <th>Acciones</th>
+        </tr>
+        ${data.map(c => `
+          <tr>
+            <td>${c.cliente}</td>
+            <td>${money(c.monto)}</td>
+            <td>${c.dias}</td>
+            <td>${badgeCobro(c.estatus)}</td>
+            <td>${c.fecha_compromiso || "-"}</td>
+            <td>${c.fecha_pago || "-"}</td>
+            <td>${c.nota || "-"}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="btn-warning" onclick="editarCobro('${c.id}')">Editar</button>
+                <button type="button" class="btn-danger" onclick="eliminarCobro('${c.id}')">Eliminar</button>
+              </div>
+            </td>
+          </tr>
+        `).join("")}
+      `;
+    }
+
+    function badgeCobro(estatus){
+      if(estatus === "Cobrado") return `<span class="pill pill-green">${estatus}</span>`;
+      if(estatus === "Promesa de pago") return `<span class="pill pill-yellow">${estatus}</span>`;
+      if(estatus === "Parcial") return `<span class="pill pill-blue">${estatus}</span>`;
+      return `<span class="pill pill-red">${estatus}</span>`;
+    }
+
+    function exportarExcel(){
+      const evento = getEventoActual();
+      if(!evento){
+        alert("No hay evento válido para exportar.");
+        return;
+      }
+
+      const resumen = calcularResumenPipeline();
+      const cobros = getCobranzaEvento();
+
+      const resumenSheet = [
+        ["Evento", evento.evento || ""],
+        ["Tipo", evento.tipo || ""],
+        ["Cultivo", evento.cultivo || ""],
+        ["Zona", evento.zona || ""],
+        ["Responsable", evento.responsable || ""],
+        ["Costo evento", num(evento.costo)],
+        ["Ventas proyectadas", num(evento.ventas)],
+        ["ROI mínimo", num(evento.roiMin)],
+        ["Leads esperados", num(evento.leads)],
+        [""],
+        ["Leads capturados", resumen.totalLeads],
+        ["Pipeline activo", resumen.pipelineActivo],
+        ["Ventas comprometidas", resumen.ventasComprometidas],
+        ["Conversión a orden (%)", resumen.totalLeads ? (resumen.ordenes / resumen.totalLeads) * 100 : 0]
+      ];
+
+      const pipelineData = ETAPAS.map(etapa => ({
+        "Etapa": etapa,
+        "Leads": resumen.etapas[etapa].cantidad,
+        "Monto estimado": resumen.etapas[etapa].monto
+      }));
+
+      const leadsEvento = getLeadsEvento().map(l => ({
+        "Nombre": l.nombre,
+        "Teléfono": l.telefono || "",
+        "Correo": l.correo || "",
+        "Tipo oportunidad": l.tipo_oportunidad || l.interes || "",
+        "Etapa funnel": l.etapa_normalizada,
+        "Ticket": l.ticket_normalizado,
+        "Responsable": l.responsable || "",
+        "Fecha 1er contacto": l.fecha1 || "",
+        "Fecha 2do contacto": l.fecha2 || "",
+        "Próximo paso": l.proximo || ""
+      }));
+
+      const cobranzaData = cobros.map(c => ({
+        "Cliente": c.cliente,
+        "Monto": c.monto,
+        "Días vencidos": c.dias,
+        "Estatus": c.estatus,
+        "Fecha compromiso": c.fecha_compromiso,
+        "Fecha pago": c.fecha_pago,
+        "Nota": c.nota
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const wsResumen = XLSX.utils.aoa_to_sheet(resumenSheet);
+      const wsPipeline = XLSX.utils.json_to_sheet(pipelineData);
+      const wsLeads = XLSX.utils.json_to_sheet(leadsEvento);
+      const wsCobranza = XLSX.utils.json_to_sheet(cobranzaData);
+
+      XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+      XLSX.utils.book_append_sheet(wb, wsPipeline, "Pipeline");
+      XLSX.utils.book_append_sheet(wb, wsLeads, "Leads");
+      XLSX.utils.book_append_sheet(wb, wsCobranza, "Cobranza");
+
+      XLSX.writeFile(wb, "Eventos_Pipeline_Cobro_Galera.xlsx");
+    }
+
+    function renderTodo(){
+      renderResumenEvento();
+      renderPipeline();
+      renderKPIs();
+      renderCobro();
+    }
+
+    function init(){
+      cargarDatos();
+      cargarEventos();
+
+      if(eventos.length > 0){
+        $("eventoSelect").value = String(eventos[0].id);
+      }
+
+      renderTodo();
+    }
+
+    init();
+  </script>
 </body>
 </html>
