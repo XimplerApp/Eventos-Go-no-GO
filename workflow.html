@@ -1,253 +1,1114 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<title>Workflow Operativo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>Workflow Operativo | Eventos Galera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<style>
-body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
-h1 {color:#38bdf8;}
-
-.card {
-  background:#1e293b;
-  padding:15px;
-  border-radius:10px;
-  margin-bottom:15px;
-}
-
-select, input {
-  width:100%;
-  padding:8px;
-  margin:5px 0;
-  border-radius:6px;
-  border:none;
-}
-
-button {
-  padding:8px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-}
-
-.save {background:#22c55e;}
-.delete {background:#ef4444;}
-
-.kpi {margin:5px 0;}
-
-.green {color:#22c55e;}
-.red {color:#ef4444;}
-.yellow {color:#facc15;}
-
-.badge {
-  padding:5px 10px;
-  border-radius:6px;
-  font-size:12px;
-}
-</style>
-</head>
-
-<body>
-
-<!-- MENU -->
-<div style="display:flex; gap:10px; margin-bottom:20px;">
-  <a href="index.html"><button>📋 Ensayos</button></a>
-  <a href="pipeline.html"><button>🌱 Pipeline</button></a>
-  <a href="workflow.html"><button>⚙️ Workflow</button></a>
-</div>
-
-<h1>⚙️ Workflow Operativo (Eventos → Lead → Cobro)</h1>
-
-<!-- FORM -->
-<div class="card">
-
-<h2>Nuevo Flujo</h2>
-
-<select id="evento"></select>
-
-<select id="etapa">
-<option>Solicitud</option>
-<option>Aprobado</option>
-<option>Evento Ejecutado</option>
-<option>Lead Generado</option>
-<option>Contactado</option>
-<option>Cotización</option>
-<option>Venta</option>
-<option>Cobrado</option>
-</select>
-
-<input id="responsable" placeholder="Responsable">
-<label>Fecha (opcional)</label>
-<input type="date" id="fechaManual">
-
-<button class="save" onclick="guardar()">Guardar</button>
-
-</div>
-
-<!-- KPI SLA -->
-<div class="card">
-
-<h2>⏱ SLA</h2>
-
-<div id="kpis"></div>
-
-</div>
-
-<!-- LISTA -->
-<div class="card">
-
-<h2>Flujos Registrados</h2>
-
-<div id="lista"></div>
-
-</div>
-
-<script>
-
-// ===== DATA =====
-let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
-let workflow = JSON.parse(localStorage.getItem("workflow")) || [];
-
-// ===== CARGAR EVENTOS =====
-function cargarEventos(){
-
-  evento.innerHTML="";
-
-  eventos.forEach(e=>{
-    evento.innerHTML += `
-    <option value="${e.id}">
-    ${e.nombre || "Evento"} - ${e.id}
-    </option>`;
-  });
-}
-
-// ===== GUARDAR =====
-function guardar(){
-
-  let fechaVal = fechaManual.value 
-    ? new Date(fechaManual.value).getTime() 
-    : Date.now();
-
-  let data = {
-    id: Date.now(),
-    evento: evento.value,
-    etapa: etapa.value,
-    responsable: responsable.value,
-    fecha: fechaVal
-  };
-
-  workflow.push(data);
-  localStorage.setItem("workflow", JSON.stringify(workflow));
-
-  render();
-}
-
-// ===== SLA =====
-function evaluarSLA(reg){
-
-  let hoy = new Date().getTime();
-  let dias = (hoy - reg.fecha) / (1000*60*60*24);
-
-  if(reg.etapa === "Solicitud" && dias > 14){
-    return `<span class="badge red">🔴 Fuera SLA</span>`;
-  }
-
-  if(reg.etapa === "Lead Generado" && dias > 2){
-    return `<span class="badge red">🔴 Sin contacto</span>`;
-  }
-
-  if(reg.etapa === "Contactado" && dias > 7){
-    return `<span class="badge yellow">🟡 Seguimiento lento</span>`;
-  }
-
-  return `<span class="badge green">🟢 OK</span>`;
-}
-
-// ===== KPI =====
-function calcularKPIs(){
-
-  let eventosMap = {};
-
-  // agrupar por evento
-  workflow.forEach(w=>{
-    if(!eventosMap[w.evento]){
-      eventosMap[w.evento] = [];
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --card2:#172033;
+      --text:#ffffff;
+      --muted:#cbd5e1;
+      --primary:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --red:#ef4444;
+      --border:#334155;
     }
-    eventosMap[w.evento].push(w);
-  });
 
-  let totalEventos = Object.keys(eventosMap).length;
-  let fueraSLA = 0;
+    *{box-sizing:border-box;}
 
-  Object.values(eventosMap).forEach(flujo=>{
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      padding:20px;
+    }
 
-    flujo.forEach(reg=>{
+    .container{
+      max-width:1250px;
+      margin:auto;
+    }
 
-      let dias = (Date.now() - reg.fecha)/(1000*60*60*24);
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:20px;
+    }
 
-      if(
-        (reg.etapa==="Solicitud" && dias>14) ||
-        (reg.etapa==="Lead Generado" && dias>2) ||
-        (reg.etapa==="Contactado" && dias>7)
-      ){
-        fueraSLA++;
+    .topbar a{text-decoration:none;}
+
+    .topbar button{
+      width:auto;
+      margin:0;
+      padding:10px 14px;
+      background:#172033;
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:bold;
+    }
+
+    h1{
+      color:var(--primary);
+      margin:0 0 10px 0;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      margin:0 0 18px 0;
+      line-height:1.5;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      padding:20px;
+      border-radius:14px;
+      margin-bottom:18px;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    h2{
+      margin-top:0;
+      color:var(--primary);
+      font-size:20px;
+    }
+
+    .help{
+      font-size:13px;
+      color:var(--muted);
+      margin:-2px 0 12px 0;
+      line-height:1.45;
+    }
+
+    label{
+      display:block;
+      margin-top:10px;
+      margin-bottom:4px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    input, select, textarea{
+      width:100%;
+      padding:10px;
+      margin:4px 0 8px 0;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:#0f172a;
+      color:var(--text);
+      outline:none;
+    }
+
+    input:focus, select:focus, textarea:focus{
+      border-color:var(--primary);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2, 1fr);
+      gap:12px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+    }
+
+    .grid-4{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    .grid-5{
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:12px;
+    }
+
+    button{
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      width:100%;
+      margin-top:10px;
+      font-weight:bold;
+    }
+
+    .btn-primary{background:var(--primary); color:#062033;}
+    .btn-success{background:var(--green); color:#04230c;}
+    .btn-secondary{background:#64748b; color:white;}
+    .btn-danger{background:var(--red); color:white;}
+    .btn-warning{background:var(--yellow); color:#3f3300;}
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:14px;
+    }
+
+    .kpi-card{
+      background:#172033;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+    }
+
+    .kpi-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+      line-height:1.4;
+    }
+
+    .kpi-value{
+      font-size:23px;
+      font-weight:bold;
+    }
+
+    .green{color:var(--green);}
+    .yellow{color:var(--yellow);}
+    .red{color:var(--red);}
+    .muted{color:var(--muted);}
+
+    .notice{
+      padding:12px 14px;
+      border-radius:12px;
+      background:#172033;
+      border:1px solid var(--border);
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    .summary-box{
+      padding:14px;
+      border-radius:12px;
+      background:#172033;
+      border:1px solid var(--border);
+      line-height:1.45;
+      margin-top:10px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      text-align:center;
+      margin-top:10px;
+    }
+
+    th, td{
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      font-size:14px;
+      vertical-align:middle;
+    }
+
+    th{
+      background:#172033;
+      color:var(--primary);
+    }
+
+    .table-actions{
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .table-actions button{
+      width:auto;
+      margin:0;
+      padding:8px 10px;
+      font-size:12px;
+      border-radius:7px;
+    }
+
+    .pill{
+      display:inline-block;
+      padding:5px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:bold;
+    }
+
+    .pill-green{background:rgba(34,197,94,.15); color:var(--green);}
+    .pill-yellow{background:rgba(250,204,21,.15); color:var(--yellow);}
+    .pill-red{background:rgba(239,68,68,.15); color:var(--red);}
+    .pill-blue{background:rgba(56,189,248,.15); color:var(--primary);}
+
+    .status-list{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .status-item{
+      padding:12px;
+      border-radius:10px;
+      background:#172033;
+      border:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .status-item strong{
+      color:var(--text);
+    }
+
+    @media (max-width: 1050px){
+      .grid-2, .grid-3, .grid-4, .grid-5, .actions, .kpi-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="topbar">
+      <a href="index.html"><button type="button">🏠 Inicio</button></a>
+      <a href="scorecard.html"><button type="button">📊 Scorecard</button></a>
+      <a href="leads.html"><button type="button">📋 Leads</button></a>
+      <a href="eventos_pipeline.html"><button type="button">📈 Pipeline</button></a>
+    </div>
+
+    <h1>⚙️ Workflow Operativo</h1>
+    <p class="subtitle">
+      Esta versión ya mide SLA por <b>hitos reales entre fechas</b>, no por antigüedad de un registro suelto.
+      El flujo se concentra en solicitud, validación, aprobación, ejecución y post-mortems de 30 y 90 días.
+    </p>
+
+    <div class="card">
+      <h2>Evento a gestionar</h2>
+      <div class="help">
+        Puedes registrar workflow para cualquier evento del scorecard. Los hitos se guardan por evento, no como bitácora desordenada.
+      </div>
+
+      <select id="eventoSelect" onchange="cargarWorkflowEvento(); renderVistaEvento();"></select>
+      <div id="estadoSistema" class="notice" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Hitos del workflow</h2>
+      <div class="help">
+        El SLA que se evalúa es:
+        solicitud mínimo 14 días antes del evento,
+        presupuesto validado ≤ 3 días desde la solicitud,
+        dirección decide ≤ 48 horas desde validación,
+        post-mortem a 30 y 90 días.
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Responsable</label>
+          <input id="responsable" placeholder="Nombre del responsable" />
+        </div>
+        <div>
+          <label>Estatus manual</label>
+          <select id="estatusManual">
+            <option>Activo</option>
+            <option>En revisión</option>
+            <option>Aprobado</option>
+            <option>Ejecutado</option>
+            <option>Cerrado</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div>
+          <label>Solicitud</label>
+          <input type="date" id="solicitudFecha" />
+        </div>
+        <div>
+          <label>Presupuesto validado</label>
+          <input type="date" id="presupuestoFecha" />
+        </div>
+        <div>
+          <label>Dirección decide</label>
+          <input type="date" id="direccionFecha" />
+        </div>
+        <div>
+          <label>Evento ejecutado</label>
+          <input type="date" id="ejecucionFecha" />
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Post-mortem 30 días</label>
+          <input type="date" id="pm30Fecha" />
+        </div>
+        <div>
+          <label>Post-mortem 90 días</label>
+          <input type="date" id="pm90Fecha" />
+        </div>
+      </div>
+
+      <label>Comentarios</label>
+      <textarea id="comentarios" rows="3" placeholder="Observaciones, acuerdos o notas relevantes"></textarea>
+
+      <div class="actions">
+        <button type="button" class="btn-success" onclick="guardarWorkflow()">💾 Guardar workflow</button>
+        <button type="button" class="btn-secondary" onclick="limpiarFormulario()">🧹 Limpiar</button>
+        <button type="button" class="btn-primary" onclick="renderVistaEvento()">🔄 Recalcular</button>
+        <button type="button" class="btn-warning" onclick="exportarCSV()">📤 Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Resumen del evento seleccionado</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Scorecard</div>
+          <div class="kpi-value" id="kpiDecision">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cumplimiento SLA medible</div>
+          <div class="kpi-value" id="kpiCumplimiento">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Leads conectados</div>
+          <div class="kpi-value" id="kpiLeads">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Órdenes detectadas</div>
+          <div class="kpi-value" id="kpiOrdenes">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cobrado registrado</div>
+          <div class="kpi-value" id="kpiCobrado">$0</div>
+        </div>
+      </div>
+
+      <div id="resumenEvento" class="summary-box"></div>
+      <div id="statusWorkflow" class="status-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>KPIs globales de workflow</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Eventos con workflow</div>
+          <div class="kpi-value" id="kpiEventosWorkflow">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Eventos con fallas SLA</div>
+          <div class="kpi-value" id="kpiEventosFalla">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Cumplimiento global</div>
+          <div class="kpi-value" id="kpiCumplimientoGlobal">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PM30 vencidos</div>
+          <div class="kpi-value" id="kpiPM30Vencidos">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">PM90 vencidos</div>
+          <div class="kpi-value" id="kpiPM90Vencidos">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Workflows registrados</h2>
+      <table id="tablaWorkflow"></table>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_EVENTOS = "eventos";
+    const STORAGE_LEADS = "leads";
+    const STORAGE_COBRANZA = "cobranza";
+    const STORAGE_WORKFLOW = "workflow";
+
+    let eventos = [];
+    let leads = [];
+    let cobranza = [];
+    let workflow = [];
+
+    const $ = (id) => document.getElementById(id);
+
+    function leerLS(key){
+      try{
+        return JSON.parse(localStorage.getItem(key)) || [];
+      }catch(e){
+        return [];
+      }
+    }
+
+    function guardarLS(key, value){
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function num(value){
+      if(value === null || value === undefined || value === "") return 0;
+      return parseFloat(String(value).replace(/[^0-9.-]/g, "")) || 0;
+    }
+
+    function money(value){
+      return "$" + Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+
+    function pctNumber(value){
+      return Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + "%";
+    }
+
+    function toInputDate(value){
+      if(!value) return "";
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+      const d = new Date(value);
+      if (isNaN(d)) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function hoyISO(){
+      return toInputDate(new Date());
+    }
+
+    function diffDays(start, end){
+      if(!start || !end) return null;
+      const a = new Date(start + "T00:00:00");
+      const b = new Date(end + "T00:00:00");
+      return Math.round((b - a) / (1000 * 60 * 60 * 24));
+    }
+
+    function addDays(baseISO, days){
+      if(!baseISO) return "";
+      const d = new Date(baseISO + "T00:00:00");
+      d.setDate(d.getDate() + days);
+      return toInputDate(d);
+    }
+
+    function badge(text, cls){
+      return `<span class="pill ${cls}">${text}</span>`;
+    }
+
+    function getEventoLabel(e){
+      return `${e.evento || e.nombre || "Evento"} | ${e.cultivo || "-"} | ${e.zona || "-"}`;
+    }
+
+    function migrateOldWorkflow(raw){
+      if(!Array.isArray(raw) || raw.length === 0) return [];
+
+      const hasOldShape = raw.some(x => x.etapa && !("solicitud_fecha" in x));
+      if(!hasOldShape){
+        return raw.map(r => ({
+          id: r.id || Date.now(),
+          evento_id: String(r.evento_id || r.evento || ""),
+          responsable: r.responsable || "",
+          estatus_manual: r.estatus_manual || "Activo",
+          solicitud_fecha: toInputDate(r.solicitud_fecha),
+          presupuesto_fecha: toInputDate(r.presupuesto_fecha),
+          direccion_fecha: toInputDate(r.direccion_fecha),
+          ejecucion_fecha: toInputDate(r.ejecucion_fecha),
+          pm30_fecha: toInputDate(r.pm30_fecha),
+          pm90_fecha: toInputDate(r.pm90_fecha),
+          comentarios: r.comentarios || "",
+          fecha_actualizacion: r.fecha_actualizacion || new Date().toLocaleString("es-MX")
+        }));
       }
 
-    });
+      const agrupado = {};
 
-  });
+      raw.forEach(item => {
+        const eventoId = String(item.evento || item.evento_id || "");
+        if(!eventoId) return;
 
-  let cumplimiento = totalEventos ? ((totalEventos - fueraSLA)/totalEventos)*100 : 0;
+        if(!agrupado[eventoId]){
+          agrupado[eventoId] = {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            evento_id: eventoId,
+            responsable: item.responsable || "",
+            estatus_manual: "Activo",
+            solicitud_fecha: "",
+            presupuesto_fecha: "",
+            direccion_fecha: "",
+            ejecucion_fecha: "",
+            pm30_fecha: "",
+            pm90_fecha: "",
+            comentarios: "Migrado desde versión anterior de workflow.",
+            fecha_actualizacion: new Date().toLocaleString("es-MX")
+          };
+        }
 
-  kpis.innerHTML = `
-  <div class="kpi">Eventos activos: ${totalEventos}</div>
-  <div class="kpi">Eventos con fallas SLA: ${fueraSLA}</div>
-  <div class="kpi ${cumplimiento>80?"green":"red"}">
-  Cumplimiento SLA: ${cumplimiento.toFixed(2)}%
-  </div>
-  `;
-}
+        const fecha = toInputDate(item.fecha);
 
-// ===== RENDER =====
-function render(){
+        if(item.etapa === "Solicitud" && !agrupado[eventoId].solicitud_fecha){
+          agrupado[eventoId].solicitud_fecha = fecha;
+        }
+        if(item.etapa === "Aprobado" && !agrupado[eventoId].direccion_fecha){
+          agrupado[eventoId].direccion_fecha = fecha;
+        }
+        if(item.etapa === "Evento Ejecutado" && !agrupado[eventoId].ejecucion_fecha){
+          agrupado[eventoId].ejecucion_fecha = fecha;
+        }
 
-  lista.innerHTML="";
+        if(item.responsable && !agrupado[eventoId].responsable){
+          agrupado[eventoId].responsable = item.responsable;
+        }
+      });
 
-  workflow.slice().reverse().forEach(w=>{
+      return Object.values(agrupado);
+    }
 
-    let e = eventos.find(x=>x.id==w.evento) || {};
+    function cargarDatos(){
+      eventos = leerLS(STORAGE_EVENTOS);
+      leads = leerLS(STORAGE_LEADS);
+      cobranza = leerLS(STORAGE_COBRANZA);
+      workflow = migrateOldWorkflow(leerLS(STORAGE_WORKFLOW));
+      guardarLS(STORAGE_WORKFLOW, workflow);
+    }
 
-    lista.innerHTML += `
-    <div class="card">
+    function cargarEventos(){
+      $("eventoSelect").innerHTML = "";
 
-      <h3>${e.nombre || "Evento"} | ${w.etapa}</h3>
+      if(eventos.length === 0){
+        $("eventoSelect").innerHTML = `<option value="">No hay eventos del scorecard</option>`;
+        $("estadoSistema").innerHTML = `
+          <strong class="red">No hay eventos disponibles.</strong><br>
+          Primero crea eventos en <b>scorecard.html</b>.
+        `;
+        return;
+      }
 
-      <p>Responsable: ${w.responsable}</p>
-      <p>${new Date(w.fecha).toLocaleString()}</p>
+      eventos
+        .slice()
+        .sort((a,b) => Number(b.id) - Number(a.id))
+        .forEach(e => {
+          const decision = String(e.decision || "").toUpperCase() || "-";
+          $("eventoSelect").innerHTML += `
+            <option value="${e.id}">
+              ${getEventoLabel(e)} | ${decision}
+            </option>
+          `;
+        });
 
-      <p>${evaluarSLA(w)}</p>
+      $("estadoSistema").innerHTML = `
+        <strong class="green">Workflow listo.</strong><br>
+        El SLA se evalúa por fechas entre hitos, no por registros aislados.
+      `;
+    }
 
-      <button class="delete" onclick="eliminar(${w.id})">🗑</button>
+    function getEventoActual(){
+      return eventos.find(e => String(e.id) === String($("eventoSelect").value));
+    }
 
-    </div>
-    `;
-  });
+    function getWorkflowEvento(){
+      const evento = getEventoActual();
+      if(!evento) return null;
+      return workflow.find(w => String(w.evento_id) === String(evento.id)) || null;
+    }
 
-  calcularKPIs();
-}
+    function getLeadsEvento(){
+      const evento = getEventoActual();
+      if(!evento) return [];
+      return leads.filter(l => String(l.evento_id) === String(evento.id));
+    }
 
-// ===== ELIMINAR =====
-function eliminar(id){
-  workflow = workflow.filter(w=>w.id!=id);
-  localStorage.setItem("workflow", JSON.stringify(workflow));
-  render();
-}
+    function getCobranzaEvento(){
+      const evento = getEventoActual();
+      if(!evento) return [];
+      return cobranza.filter(c => String(c.evento_id) === String(evento.id));
+    }
 
-// INIT
-cargarEventos();
-render();
+    function cargarWorkflowEvento(){
+      const w = getWorkflowEvento();
 
-</script>
+      if(!w){
+        limpiarFormulario(false);
+        return;
+      }
 
+      $("responsable").value = w.responsable || "";
+      $("estatusManual").value = w.estatus_manual || "Activo";
+      $("solicitudFecha").value = w.solicitud_fecha || "";
+      $("presupuestoFecha").value = w.presupuesto_fecha || "";
+      $("direccionFecha").value = w.direccion_fecha || "";
+      $("ejecucionFecha").value = w.ejecucion_fecha || "";
+      $("pm30Fecha").value = w.pm30_fecha || "";
+      $("pm90Fecha").value = w.pm90_fecha || "";
+      $("comentarios").value = w.comentarios || "";
+    }
+
+    function limpiarFormulario(reloadView = true){
+      $("responsable").value = "";
+      $("estatusManual").value = "Activo";
+      $("solicitudFecha").value = "";
+      $("presupuestoFecha").value = "";
+      $("direccionFecha").value = "";
+      $("ejecucionFecha").value = "";
+      $("pm30Fecha").value = "";
+      $("pm90Fecha").value = "";
+      $("comentarios").value = "";
+
+      if(reloadView){
+        renderVistaEvento();
+      }
+    }
+
+    function validarWorkflow(){
+      const evento = getEventoActual();
+      if(!evento){
+        alert("Selecciona un evento.");
+        return false;
+      }
+
+      return true;
+    }
+
+    function guardarWorkflow(){
+      if(!validarWorkflow()) return;
+
+      const evento = getEventoActual();
+      const ahora = new Date().toLocaleString("es-MX");
+
+      const data = {
+        id: getWorkflowEvento()?.id || Date.now(),
+        evento_id: String(evento.id),
+        responsable: $("responsable").value.trim(),
+        estatus_manual: $("estatusManual").value,
+        solicitud_fecha: $("solicitudFecha").value,
+        presupuesto_fecha: $("presupuestoFecha").value,
+        direccion_fecha: $("direccionFecha").value,
+        ejecucion_fecha: $("ejecucionFecha").value,
+        pm30_fecha: $("pm30Fecha").value,
+        pm90_fecha: $("pm90Fecha").value,
+        comentarios: $("comentarios").value.trim(),
+        fecha_actualizacion: ahora
+      };
+
+      const idx = workflow.findIndex(w => String(w.evento_id) === String(data.evento_id));
+
+      if(idx >= 0){
+        workflow[idx] = data;
+      }else{
+        workflow.push(data);
+      }
+
+      guardarLS(STORAGE_WORKFLOW, workflow);
+      renderTodo();
+    }
+
+    function eliminarWorkflow(eventoId){
+      if(!confirm("¿Seguro que deseas eliminar el workflow de este evento?")) return;
+      workflow = workflow.filter(w => String(w.evento_id) !== String(eventoId));
+      guardarLS(STORAGE_WORKFLOW, workflow);
+      cargarWorkflowEvento();
+      renderTodo();
+    }
+
+    function buildStatus(ok, label){
+      return {
+        ok,
+        measurable: true,
+        label,
+        pill: ok ? badge("Cumple", "pill-green") : badge("Fuera SLA", "pill-red")
+      };
+    }
+
+    function buildPending(label, overdue = false){
+      return {
+        ok: false,
+        measurable: overdue,
+        label,
+        pill: overdue ? badge("Vencido", "pill-red") : badge("Pendiente", "pill-yellow")
+      };
+    }
+
+    function evaluarSLA(record){
+      const hoy = hoyISO();
+
+      const solicitud = record?.solicitud_fecha || "";
+      const presupuesto = record?.presupuesto_fecha || "";
+      const direccion = record?.direccion_fecha || "";
+      const ejecucion = record?.ejecucion_fecha || "";
+      const pm30 = record?.pm30_fecha || "";
+      const pm90 = record?.pm90_fecha || "";
+
+      const status = {};
+
+      // 1. Solicitud mínimo 14 días antes del evento
+      if(solicitud && ejecucion){
+        const d = diffDays(solicitud, ejecucion);
+        status.solicitud = d >= 14
+          ? buildStatus(true, `Solicitud registrada ${d} días antes del evento.`)
+          : buildStatus(false, `La solicitud solo se registró ${d} días antes del evento.`);
+      } else if(solicitud && !ejecucion){
+        status.solicitud = buildPending("Falta fecha de ejecución para medir anticipación.");
+      } else {
+        status.solicitud = buildPending("Faltan fechas para evaluar solicitud.");
+      }
+
+      // 2. Presupuesto validado ≤ 3 días desde solicitud
+      if(solicitud && presupuesto){
+        const d = diffDays(solicitud, presupuesto);
+        status.presupuesto = (d >= 0 && d <= 3)
+          ? buildStatus(true, `Presupuesto validado en ${d} día(s).`)
+          : buildStatus(false, `Presupuesto validado en ${d} día(s); meta ≤ 3.`);
+      } else if(solicitud && !presupuesto){
+        const d = diffDays(solicitud, hoy);
+        status.presupuesto = buildPending(
+          d > 3 ? `Presupuesto vencido; ya pasaron ${d} días desde la solicitud.` : "Presupuesto pendiente dentro de ventana.",
+          d > 3
+        );
+      } else {
+        status.presupuesto = buildPending("Faltan fechas para evaluar presupuesto.");
+      }
+
+      // 3. Dirección decide ≤ 2 días desde presupuesto
+      if(presupuesto && direccion){
+        const d = diffDays(presupuesto, direccion);
+        status.direccion = (d >= 0 && d <= 2)
+          ? buildStatus(true, `Dirección decidió en ${d} día(s).`)
+          : buildStatus(false, `Dirección decidió en ${d} día(s); meta ≤ 2.`);
+      } else if(presupuesto && !direccion){
+        const d = diffDays(presupuesto, hoy);
+        status.direccion = buildPending(
+          d > 2 ? `Decisión de dirección vencida; ya pasaron ${d} días.` : "Decisión de dirección pendiente dentro de ventana.",
+          d > 2
+        );
+      } else {
+        status.direccion = buildPending("Faltan fechas para evaluar decisión de dirección.");
+      }
+
+      // 4. Post-mortem 30 días
+      if(ejecucion && pm30){
+        const d = diffDays(ejecucion, pm30);
+        status.pm30 = (d >= 25 && d <= 35)
+          ? buildStatus(true, `Post-mortem 30 registrado a los ${d} días.`)
+          : buildStatus(false, `Post-mortem 30 registrado a los ${d} días; ventana sugerida 25–35.`);
+      } else if(ejecucion && !pm30){
+        const d = diffDays(ejecucion, hoy);
+        status.pm30 = buildPending(
+          d > 35 ? `Post-mortem 30 vencido; ya van ${d} días desde ejecución.` : "Post-mortem 30 aún no vencido o pendiente.",
+          d > 35
+        );
+      } else {
+        status.pm30 = buildPending("Falta fecha de ejecución para evaluar post-mortem 30.");
+      }
+
+      // 5. Post-mortem 90 días
+      if(ejecucion && pm90){
+        const d = diffDays(ejecucion, pm90);
+        status.pm90 = (d >= 85 && d <= 95)
+          ? buildStatus(true, `Post-mortem 90 registrado a los ${d} días.`)
+          : buildStatus(false, `Post-mortem 90 registrado a los ${d} días; ventana sugerida 85–95.`);
+      } else if(ejecucion && !pm90){
+        const d = diffDays(ejecucion, hoy);
+        status.pm90 = buildPending(
+          d > 95 ? `Post-mortem 90 vencido; ya van ${d} días desde ejecución.` : "Post-mortem 90 aún no vencido o pendiente.",
+          d > 95
+        );
+      } else {
+        status.pm90 = buildPending("Falta fecha de ejecución para evaluar post-mortem 90.");
+      }
+
+      const valores = Object.values(status);
+      const medibles = valores.filter(v => v.measurable);
+      const ok = medibles.filter(v => v.ok).length;
+      const cumplimiento = medibles.length ? (ok / medibles.length) * 100 : 0;
+      const tieneFallas = medibles.some(v => !v.ok);
+
+      return {
+        status,
+        cumplimiento,
+        hitosMedibles: medibles.length,
+        hitosOk: ok,
+        tieneFallas,
+        pm30Vencido: status.pm30.pill.includes("Vencido"),
+        pm90Vencido: status.pm90.pill.includes("Vencido")
+      };
+    }
+
+    function renderVistaEvento(){
+      const evento = getEventoActual();
+      const record = getWorkflowEvento();
+      const leadsEvento = getLeadsEvento();
+      const cobranzaEvento = getCobranzaEvento();
+
+      if(!evento){
+        $("kpiDecision").textContent = "-";
+        $("kpiCumplimiento").textContent = "0%";
+        $("kpiLeads").textContent = "0";
+        $("kpiOrdenes").textContent = "0";
+        $("kpiCobrado").textContent = "$0";
+        $("resumenEvento").innerHTML = `<span class="muted">No hay evento seleccionado.</span>`;
+        $("statusWorkflow").innerHTML = "";
+        return;
+      }
+
+      const decision = String(evento.decision || "-").toUpperCase();
+      const score = num(evento.score);
+      const ordenes = leadsEvento.filter(l => {
+        const etapa = l.etapa_funnel || l.interes || "";
+        return etapa === "Orden" || etapa === "Compra directa";
+      }).length;
+
+      const cobrado = cobranzaEvento
+        .filter(c => (c.estatus || "") === "Cobrado")
+        .reduce((acc, c) => acc + num(c.monto), 0);
+
+      $("kpiDecision").textContent = decision;
+      $("kpiDecision").className = `kpi-value ${decision === "GO" ? "green" : "red"}`;
+      $("kpiLeads").textContent = Number(leadsEvento.length).toLocaleString("es-MX");
+      $("kpiOrdenes").textContent = Number(ordenes).toLocaleString("es-MX");
+      $("kpiCobrado").textContent = money(cobrado);
+
+      $("resumenEvento").innerHTML = `
+        <div><strong>Evento:</strong> ${getEventoLabel(evento)}</div>
+        <div><strong>Tipo:</strong> ${evento.tipo || "-"}</div>
+        <div><strong>Objetivo:</strong> ${evento.objetivo || "-"}</div>
+        <div><strong>Responsable scorecard:</strong> ${evento.responsable || "-"}</div>
+        <div style="margin-top:8px;">
+          ${badge(decision, decision === "GO" ? "pill-green" : "pill-red")}
+          ${badge(`Score ${score}/100`, score >= 75 ? "pill-green" : "pill-red")}
+          ${badge(evento.estado_evento || "Sin estado", "pill-blue")}
+        </div>
+      `;
+
+      if(!record){
+        $("kpiCumplimiento").textContent = "0%";
+        $("kpiCumplimiento").className = "kpi-value yellow";
+        $("statusWorkflow").innerHTML = `
+          <div class="status-item">
+            <strong>No hay workflow guardado para este evento.</strong>
+            ${badge("Pendiente", "pill-yellow")}
+          </div>
+        `;
+        return;
+      }
+
+      const evalSLA = evaluarSLA(record);
+      $("kpiCumplimiento").textContent = pctNumber(evalSLA.cumplimiento);
+      $("kpiCumplimiento").className = `kpi-value ${evalSLA.cumplimiento >= 80 ? "green" : "red"}`;
+
+      $("statusWorkflow").innerHTML = `
+        <div class="status-item">
+          <strong>Solicitud → Ejecución</strong>
+          <div>${evalSLA.status.solicitud.pill}</div>
+          <div class="muted">${evalSLA.status.solicitud.label}</div>
+        </div>
+        <div class="status-item">
+          <strong>Solicitud → Presupuesto</strong>
+          <div>${evalSLA.status.presupuesto.pill}</div>
+          <div class="muted">${evalSLA.status.presupuesto.label}</div>
+        </div>
+        <div class="status-item">
+          <strong>Presupuesto → Dirección</strong>
+          <div>${evalSLA.status.direccion.pill}</div>
+          <div class="muted">${evalSLA.status.direccion.label}</div>
+        </div>
+        <div class="status-item">
+          <strong>Post-mortem 30</strong>
+          <div>${evalSLA.status.pm30.pill}</div>
+          <div class="muted">${evalSLA.status.pm30.label}</div>
+        </div>
+        <div class="status-item">
+          <strong>Post-mortem 90</strong>
+          <div>${evalSLA.status.pm90.pill}</div>
+          <div class="muted">${evalSLA.status.pm90.label}</div>
+        </div>
+      `;
+    }
+
+    function calcularKPIsGlobales(){
+      let eventosConWorkflow = workflow.length;
+      let eventosConFalla = 0;
+      let hitosMedibles = 0;
+      let hitosOk = 0;
+      let pm30Vencidos = 0;
+      let pm90Vencidos = 0;
+
+      workflow.forEach(w => {
+        const e = evaluarSLA(w);
+        hitosMedibles += e.hitosMedibles;
+        hitosOk += e.hitosOk;
+        if(e.tieneFallas) eventosConFalla++;
+        if(e.pm30Vencido) pm30Vencidos++;
+        if(e.pm90Vencido) pm90Vencidos++;
+      });
+
+      const cumplimiento = hitosMedibles ? (hitosOk / hitosMedibles) * 100 : 0;
+
+      $("kpiEventosWorkflow").textContent = Number(eventosConWorkflow).toLocaleString("es-MX");
+      $("kpiEventosFalla").textContent = Number(eventosConFalla).toLocaleString("es-MX");
+      $("kpiCumplimientoGlobal").textContent = pctNumber(cumplimiento);
+      $("kpiPM30Vencidos").textContent = Number(pm30Vencidos).toLocaleString("es-MX");
+      $("kpiPM90Vencidos").textContent = Number(pm90Vencidos).toLocaleString("es-MX");
+
+      $("kpiCumplimientoGlobal").className = `kpi-value ${cumplimiento >= 80 ? "green" : "red"}`;
+    }
+
+    function renderTabla(){
+      if(workflow.length === 0){
+        $("tablaWorkflow").innerHTML = `
+          <tr>
+            <th>No hay workflows registrados todavía.</th>
+          </tr>
+        `;
+        return;
+      }
+
+      const rows = workflow
+        .slice()
+        .sort((a,b) => {
+          const ea = eventos.find(x => String(x.id) === String(a.evento_id));
+          const eb = eventos.find(x => String(x.id) === String(b.evento_id));
+          return Number(eb?.id || 0) - Number(ea?.id || 0);
+        })
+        .map(w => {
+          const e = eventos.find(x => String(x.id) === String(w.evento_id)) || {};
+          const evalSLA = evaluarSLA(w);
+
+          return `
+            <tr>
+              <td>${getEventoLabel(e)}</td>
+              <td>${w.responsable || "-"}</td>
+              <td>${w.estatus_manual || "-"}</td>
+              <td>${w.solicitud_fecha || "-"}</td>
+              <td>${w.presupuesto_fecha || "-"}</td>
+              <td>${w.direccion_fecha || "-"}</td>
+              <td>${w.ejecucion_fecha || "-"}</td>
+              <td>${w.pm30_fecha || "-"}</td>
+              <td>${w.pm90_fecha || "-"}</td>
+              <td class="${evalSLA.cumplimiento >= 80 ? 'green' : 'red'}">${pctNumber(evalSLA.cumplimiento)}</td>
+              <td>
+                <div class="table-actions">
+                  <button type="button" class="btn-warning" onclick="seleccionarEventoYEditar('${w.evento_id}')">Editar</button>
+                  <button type="button" class="btn-danger" onclick="eliminarWorkflow('${w.evento_id}')">Eliminar</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+      $("tablaWorkflow").innerHTML = `
+        <tr>
+          <th>Evento</th>
+          <th>Responsable</th>
+          <th>Estatus</th>
+          <th>Solicitud</th>
+          <th>Presupuesto</th>
+          <th>Dirección</th>
+          <th>Ejecución</th>
+          <th>PM30</th>
+          <th>PM90</th>
+          <th>% SLA</th>
+          <th>Acciones</th>
+        </tr>
+        ${rows}
+      `;
+    }
+
+    function seleccionarEventoYEditar(eventoId){
+      $("eventoSelect").value = String(eventoId);
+      cargarWorkflowEvento();
+      renderVistaEvento();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function exportarCSV(){
+      if(workflow.length === 0){
+        alert("No hay workflows para exportar.");
+        return;
+      }
+
+      const headers = [
+        "evento_id","evento","cultivo","zona","decision","score",
+        "responsable","estatus_manual",
+        "solicitud_fecha","presupuesto_fecha","direccion_fecha","ejecucion_fecha","pm30_fecha","pm90_fecha",
+        "cumplimiento_sla","comentarios"
+      ];
+
+      let csv = headers.join(",") + "\n";
+
+      workflow.forEach(w => {
+        const e = eventos.find(x => String(x.id) === String(w.evento_id)) || {};
+        const evalSLA = evaluarSLA(w);
+
+        const row = [
+          w.evento_id,
+          e.evento || e.nombre || "",
+          e.cultivo || "",
+          e.zona || "",
+          e.decision || "",
+          e.score || "",
+          w.responsable || "",
+          w.estatus_manual || "",
+          w.solicitud_fecha || "",
+          w.presupuesto_fecha || "",
+          w.direccion_fecha || "",
+          w.ejecucion_fecha || "",
+          w.pm30_fecha || "",
+          w.pm90_fecha || "",
+          pctNumber(evalSLA.cumplimiento),
+          w.comentarios || ""
+        ].map(v => `"${String(v).replace(/"/g,'""')}"`);
+
+        csv += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "workflow_eventos_galera.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function renderTodo(){
+      renderVistaEvento();
+      calcularKPIsGlobales();
+      renderTabla();
+    }
+
+    function init(){
+      cargarDatos();
+      cargarEventos();
+
+      if(eventos.length > 0){
+        $("eventoSelect").value = String(eventos[0].id);
+        cargarWorkflowEvento();
+      }
+
+      renderTodo();
+    }
+
+    init();
+  </script>
 </body>
 </html>
