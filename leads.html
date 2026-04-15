@@ -1,292 +1,831 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<title>Leads de Eventos</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>Leads de Eventos | Galera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<style>
-body {font-family: Arial; background:#0f172a; color:white; padding:20px;}
-h1 {color:#38bdf8;}
-
-.card {background:#1e293b; padding:20px; border-radius:10px; margin-bottom:20px;}
-
-input, select {
-    width:100%;
-    padding:10px;
-    margin:6px 0;
-    border-radius:6px;
-    border:none;
-}
-
-button {
-    padding:10px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-}
-
-.save {background:#22c55e;}
-.delete {background:#ef4444;}
-.export {background:#22c55e;}
-
-.kpi {font-size:18px; margin:5px 0;}
-.green {color:#22c55e;}
-.red {color:#ef4444;}
-
-table {
-    width:100%;
-    border-collapse: collapse;
-    text-align:center;
-}
-
-th, td {
-    padding:10px;
-    border-bottom:1px solid #334155;
-}
-</style>
-</head>
-
-<body>
-
-<!-- HEADER -->
-<div style="display:flex; gap:10px; margin-bottom:20px;">
-  <a href="index.html"><button>📋 Ensayos</button></a>
-  <a href="leads.html"><button>📞 Leads</button></a>
-</div>
-
-<h1>📞 Leads de Eventos</h1>
-
-<!-- FORM -->
-<div class="card">
-
-<h2>Nuevo Lead</h2>
-
-<select id="evento"></select>
-
-<input id="nombre" placeholder="Nombre productor">
-<input id="telefono" placeholder="Teléfono">
-<input id="correo" placeholder="Correo">
-
-<input id="cultivo" placeholder="Cultivo">
-<input id="hectareas" placeholder="Hectáreas estimadas">
-<input id="variedad" placeholder="Variedad actual">
-
-<select id="interes">
-<option>Ensayo</option>
-<option>Compra directa</option>
-<option>Cotización</option>
-</select>
-
-<input id="ticket" placeholder="Ticket estimado $">
-<input id="proximo" placeholder="Próximo paso">
-
-<input id="responsable" placeholder="Responsable comercial">
-
-<label>Fecha 1er contacto</label>
-<input type="date" id="fecha1">
-
-<label>Fecha 2do contacto</label>
-<input type="date" id="fecha2">
-
-<button class="save" onclick="guardar()">Guardar Lead</button>
-
-</div>
-
-<!-- KPI -->
-<div class="card">
-<h2>📊 KPI Leads</h2>
-<div id="kpis"></div>
-</div>
-
-<!-- TABLA -->
-<div class="card">
-
-<button class="export" onclick="exportarExcel()">📊 Exportar</button>
-
-<table id="tabla"></table>
-
-</div>
-
-<script>
-
-let leads = JSON.parse(localStorage.getItem("leads")) || [];
-let eventos = JSON.parse(localStorage.getItem("eventos")) || [];
-
-// ===== FUNCIÓN NUMEROS (FIX COMAS) =====
-function num(valor){
-    if(!valor) return 0;
-    return parseFloat(valor.replace(/,/g,'')) || 0;
-}
-
-// ===== CARGAR EVENTOS =====
-function cargarEventos(){
-
-    let select = document.getElementById("evento");
-
-    select.innerHTML = "";
-
-    if(eventos.length === 0){
-        select.innerHTML = `<option>No hay eventos</option>`;
-        return;
+  <style>
+    :root{
+      --bg:#0f172a;
+      --card:#1e293b;
+      --card2:#172033;
+      --text:#ffffff;
+      --muted:#cbd5e1;
+      --primary:#38bdf8;
+      --green:#22c55e;
+      --yellow:#facc15;
+      --red:#ef4444;
+      --border:#334155;
     }
 
-    eventos.forEach(e => {
+    *{box-sizing:border-box;}
 
-        let texto = `${e.evento} | ${e.cultivo} | ${e.zona}`;
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      padding:20px;
+    }
 
-        select.innerHTML += `
-        <option value="${e.id ? e.id : e.evento}">
-        ${texto}
-        </option>
+    .container{
+      max-width:1200px;
+      margin:auto;
+    }
+
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-bottom:20px;
+    }
+
+    .topbar a{text-decoration:none;}
+
+    .topbar button{
+      width:auto;
+      margin:0;
+      padding:10px 14px;
+      background:#172033;
+      border:1px solid var(--border);
+      color:var(--text);
+    }
+
+    h1{
+      color:var(--primary);
+      margin:0 0 10px 0;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      margin:0 0 18px 0;
+      line-height:1.5;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      padding:20px;
+      border-radius:14px;
+      margin-bottom:18px;
+      box-shadow:0 10px 24px rgba(0,0,0,.18);
+    }
+
+    h2{
+      margin-top:0;
+      color:var(--primary);
+      font-size:20px;
+    }
+
+    .help{
+      font-size:13px;
+      color:var(--muted);
+      margin:-2px 0 12px 0;
+      line-height:1.45;
+    }
+
+    label{
+      display:block;
+      margin-top:10px;
+      margin-bottom:4px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    input, select, textarea{
+      width:100%;
+      padding:10px;
+      margin:4px 0 8px 0;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:#0f172a;
+      color:var(--text);
+      outline:none;
+    }
+
+    input:focus, select:focus, textarea:focus{
+      border-color:var(--primary);
+    }
+
+    .grid-2{
+      display:grid;
+      grid-template-columns:repeat(2, 1fr);
+      gap:12px;
+    }
+
+    .grid-3{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+    }
+
+    .grid-4{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    button{
+      padding:12px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      width:100%;
+      margin-top:10px;
+      font-weight:bold;
+    }
+
+    .btn-primary{background:var(--primary); color:#062033;}
+    .btn-success{background:var(--green); color:#04230c;}
+    .btn-secondary{background:#64748b; color:white;}
+    .btn-danger{background:var(--red); color:white;}
+    .btn-warning{background:var(--yellow); color:#3f3300;}
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(4, 1fr);
+      gap:12px;
+    }
+
+    .kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(5, 1fr);
+      gap:14px;
+    }
+
+    .kpi-card{
+      background:#172033;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px;
+    }
+
+    .kpi-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+    }
+
+    .kpi-value{
+      font-size:24px;
+      font-weight:bold;
+    }
+
+    .green{color:var(--green);}
+    .yellow{color:var(--yellow);}
+    .red{color:var(--red);}
+    .muted{color:var(--muted);}
+
+    .notice{
+      padding:12px 14px;
+      border-radius:12px;
+      background:#172033;
+      border:1px solid var(--border);
+      line-height:1.45;
+      color:var(--muted);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      text-align:center;
+      margin-top:10px;
+    }
+
+    th, td{
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      font-size:14px;
+      vertical-align:middle;
+    }
+
+    th{
+      background:#172033;
+      color:var(--primary);
+    }
+
+    .table-actions{
+      display:flex;
+      gap:8px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .table-actions button{
+      width:auto;
+      margin:0;
+      padding:8px 10px;
+      font-size:12px;
+      border-radius:7px;
+    }
+
+    .pill{
+      display:inline-block;
+      padding:5px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:bold;
+    }
+
+    .pill-green{background:rgba(34,197,94,.15); color:var(--green);}
+    .pill-yellow{background:rgba(250,204,21,.15); color:var(--yellow);}
+    .pill-red{background:rgba(239,68,68,.15); color:var(--red);}
+    .pill-blue{background:rgba(56,189,248,.15); color:var(--primary);}
+
+    @media (max-width: 980px){
+      .grid-2, .grid-3, .grid-4, .actions, .kpi-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="topbar">
+      <a href="index.html"><button type="button">🏠 Inicio</button></a>
+      <a href="scorecard.html"><button type="button">📊 Scorecard</button></a>
+      <a href="eventos_pipeline.html"><button type="button">📈 Pipeline</button></a>
+      <a href="workflow.html"><button type="button">⚙️ Workflow</button></a>
+    </div>
+
+    <h1>📋 Leads de Eventos</h1>
+    <p class="subtitle">
+      Este módulo ya no registra solo “contactos”; ahora registra oportunidades trazables por evento aprobado,
+      con tipo de oportunidad, etapa del funnel, seguimiento y señales básicas de disciplina comercial.
+    </p>
+
+    <div class="card">
+      <h2>Nuevo Lead / Oportunidad</h2>
+      <div class="help">
+        Solo aparecen eventos aprobados en el Scorecard. El lead queda vinculado al evento maestro por su ID.
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Evento aprobado</label>
+          <select id="evento"></select>
+        </div>
+        <div>
+          <label>Responsable comercial</label>
+          <input id="responsable" placeholder="Nombre del responsable" />
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label>Nombre productor / contacto</label>
+          <input id="nombre" placeholder="Nombre completo" />
+        </div>
+        <div>
+          <label>Teléfono / WhatsApp</label>
+          <input id="telefono" placeholder="Teléfono" />
+        </div>
+        <div>
+          <label>Correo</label>
+          <input id="correo" placeholder="Correo" />
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label>Cultivo</label>
+          <input id="cultivo" placeholder="Ej. Tomate" />
+        </div>
+        <div>
+          <label>Hectáreas estimadas</label>
+          <input id="hectareas" placeholder="Ej. 25" />
+        </div>
+        <div>
+          <label>Variedad actual</label>
+          <input id="variedad" placeholder="Variedad actual del productor" />
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div>
+          <label>Tipo de oportunidad</label>
+          <select id="tipoOportunidad">
+            <option>Ensayo</option>
+            <option>Compra directa</option>
+            <option>Cotización</option>
+          </select>
+        </div>
+        <div>
+          <label>Etapa del funnel</label>
+          <select id="etapaFunnel">
+            <option>Capturado</option>
+            <option>1er contacto</option>
+            <option>2do contacto</option>
+            <option>Demo / Visita</option>
+            <option>Cotización</option>
+            <option>Negociación</option>
+            <option>Orden</option>
+            <option>Entrega</option>
+            <option>Factura</option>
+            <option>Cobrado</option>
+            <option>Perdido</option>
+          </select>
+        </div>
+        <div>
+          <label>Ticket estimado ($)</label>
+          <input id="ticket" placeholder="Ej. 150000" />
+        </div>
+      </div>
+
+      <label>Próximo paso</label>
+      <input id="proximo" placeholder="Ej. Agendar visita técnica / enviar cotización / llamada de seguimiento" />
+
+      <div class="grid-2">
+        <div>
+          <label>Fecha 1er contacto</label>
+          <input type="date" id="fecha1" />
+        </div>
+        <div>
+          <label>Fecha 2do contacto</label>
+          <input type="date" id="fecha2" />
+        </div>
+      </div>
+
+      <label>Motivo de pérdida (si aplica)</label>
+      <textarea id="motivoPerdida" rows="3" placeholder="Completar solo si la etapa es Perdido"></textarea>
+
+      <div class="actions">
+        <button type="button" class="btn-primary" onclick="guardarLead()">💾 Guardar lead</button>
+        <button type="button" class="btn-secondary" onclick="limpiarFormulario()">🧹 Limpiar</button>
+        <button type="button" class="btn-success" onclick="exportarExcel()">📤 Exportar Excel</button>
+        <button type="button" class="btn-warning" onclick="aplicarFiltros()">🔎 Aplicar filtros</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Filtros</h2>
+      <div class="grid-3">
+        <div>
+          <label>Filtrar por evento</label>
+          <select id="filtroEvento"></select>
+        </div>
+        <div>
+          <label>Filtrar por etapa</label>
+          <select id="filtroEtapa">
+            <option value="">Todas</option>
+            <option>Capturado</option>
+            <option>1er contacto</option>
+            <option>2do contacto</option>
+            <option>Demo / Visita</option>
+            <option>Cotización</option>
+            <option>Negociación</option>
+            <option>Orden</option>
+            <option>Entrega</option>
+            <option>Factura</option>
+            <option>Cobrado</option>
+            <option>Perdido</option>
+          </select>
+        </div>
+        <div>
+          <label>Filtrar por responsable</label>
+          <input id="filtroResponsable" placeholder="Nombre del responsable" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>KPIs de Leads</h2>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total leads</div>
+          <div class="kpi-value" id="kpiTotal">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">% 1er contacto ≤ 48h</div>
+          <div class="kpi-value" id="kpi48h">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">% 2 toques ≤ 7 días</div>
+          <div class="kpi-value" id="kpi7d">0%</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Pipeline estimado</div>
+          <div class="kpi-value" id="kpiPipeline">$0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Órdenes / Cobrados</div>
+          <div class="kpi-value" id="kpiOrdenes">0 / 0</div>
+        </div>
+      </div>
+      <div id="kpiNotas" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Leads registrados</h2>
+      <div id="estadoSistema" class="notice" style="margin-bottom:14px;"></div>
+      <table id="tabla"></table>
+    </div>
+
+  </div>
+
+  <script>
+    const STORAGE_LEADS = "leads";
+    const STORAGE_EVENTOS = "eventos";
+
+    let leads = [];
+    let eventosAprobados = [];
+    let editId = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function leerLS(key){
+      try{
+        return JSON.parse(localStorage.getItem(key)) || [];
+      }catch(e){
+        return [];
+      }
+    }
+
+    function guardarLS(key, value){
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function num(value){
+      if(value === null || value === undefined || value === "") return 0;
+      return parseFloat(String(value).replace(/[^0-9.-]/g, "")) || 0;
+    }
+
+    function money(value){
+      return "$" + Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      });
+    }
+
+    function pct(value){
+      return Number(value || 0).toLocaleString("es-MX", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }) + "%";
+    }
+
+    function hoyISO(){
+      return new Date().toISOString().split("T")[0];
+    }
+
+    function diasEntre(fechaInicio, fechaFin){
+      if(!fechaInicio || !fechaFin) return null;
+      const ini = new Date(fechaInicio + "T00:00:00");
+      const fin = new Date(fechaFin + "T00:00:00");
+      const diff = Math.round((fin - ini) / (1000 * 60 * 60 * 24));
+      return diff;
+    }
+
+    function cargarDatos(){
+      leads = leerLS(STORAGE_LEADS);
+      const eventos = leerLS(STORAGE_EVENTOS);
+
+      eventosAprobados = eventos.filter(e =>
+        e.aprobado_para_ejecucion === true ||
+        String(e.decision || "").toUpperCase() === "GO"
+      );
+    }
+
+    function cargarEventos(){
+      const selectEvento = $("evento");
+      const filtroEvento = $("filtroEvento");
+
+      selectEvento.innerHTML = "";
+      filtroEvento.innerHTML = `<option value="">Todos los eventos aprobados</option>`;
+
+      if(eventosAprobados.length === 0){
+        selectEvento.innerHTML = `<option value="">No hay eventos aprobados</option>`;
+        $("estadoSistema").innerHTML = `
+          <strong class="red">No hay eventos aprobados disponibles.</strong><br>
+          Primero aprueba eventos en <b>scorecard.html</b> para poder capturar leads con trazabilidad correcta.
         `;
-    });
-}
+        return;
+      }
 
-// ===== GUARDAR =====
-function guardar(){
+      eventosAprobados.forEach(e => {
+        const texto = `${e.evento} | ${e.cultivo} | ${e.zona}`;
 
-    let eventoId = document.getElementById("evento").value;
+        selectEvento.innerHTML += `<option value="${e.id}">${texto}</option>`;
+        filtroEvento.innerHTML += `<option value="${e.id}">${texto}</option>`;
+      });
 
-    let eventoSeleccionado = eventos.find(e =>
-        String(e.id) === String(eventoId) ||
-        String(e.evento) === String(eventoId)
-    );
+      $("estadoSistema").innerHTML = `
+        <strong class="green">Sistema listo.</strong><br>
+        Solo se muestran eventos aprobados, para evitar capturar leads de eventos sin autorización comercial.
+      `;
+    }
 
-    let data = {
-        id: Date.now(),
-        evento_id: eventoId,
-        evento_nombre: eventoSeleccionado ? eventoSeleccionado.evento : "Evento no encontrado",
+    function obtenerEventoSeleccionado(){
+      const eventoId = $("evento").value;
+      return eventosAprobados.find(e => String(e.id) === String(eventoId));
+    }
 
-        nombre: nombre.value,
-        telefono: telefono.value,
-        correo: correo.value,
-        cultivo: cultivo.value,
+    function validarLead(){
+      const eventoSeleccionado = obtenerEventoSeleccionado();
+      const nombre = $("nombre").value.trim();
+      const telefono = $("telefono").value.trim();
+      const correo = $("correo").value.trim();
+      const cultivo = $("cultivo").value.trim();
+      const responsable = $("responsable").value.trim();
+      const etapaFunnel = $("etapaFunnel").value;
+      const motivoPerdida = $("motivoPerdida").value.trim();
 
-        hectareas: num(hectareas.value),
-        variedad: variedad.value,
-        interes: interes.value,
+      let errores = [];
 
-        ticket: num(ticket.value),
+      if(!eventoSeleccionado) errores.push("Selecciona un evento aprobado.");
+      if(!nombre) errores.push("Captura el nombre del productor/contacto.");
+      if(!telefono && !correo) errores.push("Captura al menos teléfono o correo.");
+      if(!cultivo) errores.push("Captura el cultivo.");
+      if(!responsable) errores.push("Captura el responsable comercial.");
+      if(etapaFunnel === "Perdido" && !motivoPerdida) errores.push("Indica el motivo de pérdida.");
 
-        proximo: proximo.value,
-        responsable: responsable.value,
-        fecha1: fecha1.value,
-        fecha2: fecha2.value,
+      return errores;
+    }
 
-        fecha: new Date().toLocaleString()
-    };
+    function guardarLead(){
+      const errores = validarLead();
 
-    leads.push(data);
-    localStorage.setItem("leads", JSON.stringify(leads));
+      if(errores.length > 0){
+        alert("Corrige lo siguiente:\n\n- " + errores.join("\n- "));
+        return;
+      }
 
-    limpiar();
-    render();
-}
+      const eventoSeleccionado = obtenerEventoSeleccionado();
+      const ahora = new Date().toLocaleString("es-MX");
+      const capturaISO = editId
+        ? (leads.find(l => String(l.id) === String(editId))?.fecha_captura_iso || hoyISO())
+        : hoyISO();
 
-// ===== KPI =====
-function calcularKPIs(){
+      const data = {
+        id: editId || Date.now(),
+        fecha_captura: editId
+          ? (leads.find(l => String(l.id) === String(editId))?.fecha_captura || ahora)
+          : ahora,
+        fecha_captura_iso: capturaISO,
+        fecha_actualizacion: ahora,
 
-    let total = leads.length;
+        evento_id: eventoSeleccionado.id,
+        evento_nombre: eventoSeleccionado.evento,
+        evento_tipo: eventoSeleccionado.tipo || "",
+        evento_cultivo: eventoSeleccionado.cultivo || "",
+        evento_zona: eventoSeleccionado.zona || "",
 
-    let con2Toques = leads.filter(l => l.fecha1 && l.fecha2).length;
+        nombre: $("nombre").value.trim(),
+        telefono: $("telefono").value.trim(),
+        correo: $("correo").value.trim(),
+        cultivo: $("cultivo").value.trim(),
+        hectareas: num($("hectareas").value),
+        variedad: $("variedad").value.trim(),
 
-    let porcentaje = total ? (con2Toques / total) * 100 : 0;
+        tipo_oportunidad: $("tipoOportunidad").value,
+        etapa_funnel: $("etapaFunnel").value,
+        ticket: num($("ticket").value),
 
-    let clase = porcentaje >= 90 ? "green" : "red";
+        proximo: $("proximo").value.trim(),
+        responsable: $("responsable").value.trim(),
+        fecha1: $("fecha1").value,
+        fecha2: $("fecha2").value,
+        motivo_perdida: $("motivoPerdida").value.trim()
+      };
 
-    kpis.innerHTML = `
-    <div class="kpi">Total Leads: ${total}</div>
-    <div class="kpi ${clase}">% Leads con 2 toques: ${porcentaje.toFixed(2)}%</div>
-    `;
-}
+      if(editId){
+        leads = leads.map(l => String(l.id) === String(editId) ? data : l);
+      }else{
+        leads.push(data);
+      }
 
-// ===== RENDER =====
-function render(){
+      guardarLS(STORAGE_LEADS, leads);
+      limpiarFormulario(false);
+      aplicarFiltros();
+    }
 
-    tabla.innerHTML = `
-    <tr>
-    <th>Evento</th>
-    <th>Nombre</th>
-    <th>Cultivo</th>
-    <th>Interés</th>
-    <th>Ticket</th>
-    <th>1er toque</th>
-    <th>2do toque</th>
-    <th></th>
-    </tr>
-    `;
+    function editarLead(id){
+      const l = leads.find(x => String(x.id) === String(id));
+      if(!l) return;
 
-    leads.slice().reverse().forEach(l=>{
+      editId = l.id;
 
-        tabla.innerHTML += `
+      $("evento").value = l.evento_id;
+      $("responsable").value = l.responsable || "";
+      $("nombre").value = l.nombre || "";
+      $("telefono").value = l.telefono || "";
+      $("correo").value = l.correo || "";
+      $("cultivo").value = l.cultivo || "";
+      $("hectareas").value = l.hectareas ?? "";
+      $("variedad").value = l.variedad || "";
+      $("tipoOportunidad").value = l.tipo_oportunidad || "Ensayo";
+      $("etapaFunnel").value = l.etapa_funnel || "Capturado";
+      $("ticket").value = l.ticket ?? "";
+      $("proximo").value = l.proximo || "";
+      $("fecha1").value = l.fecha1 || "";
+      $("fecha2").value = l.fecha2 || "";
+      $("motivoPerdida").value = l.motivo_perdida || "";
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function eliminarLead(id){
+      if(!confirm("¿Seguro que deseas eliminar este lead?")) return;
+      leads = leads.filter(l => String(l.id) !== String(id));
+      guardarLS(STORAGE_LEADS, leads);
+      aplicarFiltros();
+    }
+
+    function limpiarFormulario(resetResultado = true){
+      editId = null;
+
+      [
+        "responsable","nombre","telefono","correo","cultivo","hectareas","variedad",
+        "ticket","proximo","fecha1","fecha2","motivoPerdida"
+      ].forEach(id => $(id).value = "");
+
+      $("tipoOportunidad").value = "Ensayo";
+      $("etapaFunnel").value = "Capturado";
+
+      if(eventosAprobados.length > 0){
+        $("evento").value = String(eventosAprobados[0].id);
+      }
+
+      if(resetResultado){
+        aplicarFiltros();
+      }
+    }
+
+    function obtenerLeadsFiltrados(){
+      const filtroEvento = $("filtroEvento").value;
+      const filtroEtapa = $("filtroEtapa").value;
+      const filtroResponsable = $("filtroResponsable").value.trim().toLowerCase();
+
+      return leads.filter(l => {
+        const okEvento = !filtroEvento || String(l.evento_id) === String(filtroEvento);
+        const okEtapa = !filtroEtapa || l.etapa_funnel === filtroEtapa;
+        const okResponsable = !filtroResponsable || String(l.responsable || "").toLowerCase().includes(filtroResponsable);
+        return okEvento && okEtapa && okResponsable;
+      });
+    }
+
+    function calcularKPIs(lista){
+      const total = lista.length;
+
+      const contacto48 = lista.filter(l => {
+        const d = diasEntre(l.fecha_captura_iso, l.fecha1);
+        return d !== null && d >= 0 && d <= 2;
+      }).length;
+
+      const dosToques7d = lista.filter(l => {
+        const d = diasEntre(l.fecha_captura_iso, l.fecha2);
+        return d !== null && d >= 0 && d <= 7;
+      }).length;
+
+      const pipeline = lista
+        .filter(l => l.etapa_funnel !== "Perdido")
+        .reduce((acc, l) => acc + (Number(l.ticket) || 0), 0);
+
+      const ordenes = lista.filter(l => l.etapa_funnel === "Orden").length;
+      const cobrados = lista.filter(l => l.etapa_funnel === "Cobrado").length;
+
+      $("kpiTotal").textContent = total;
+      $("kpi48h").textContent = total ? pct((contacto48 / total) * 100) : "0%";
+      $("kpi7d").textContent = total ? pct((dosToques7d / total) * 100) : "0%";
+      $("kpiPipeline").textContent = money(pipeline);
+      $("kpiOrdenes").textContent = `${ordenes} / ${cobrados}`;
+
+      const clase48 = total && (contacto48 / total) >= 0.90 ? "green" : "red";
+      const clase7 = total && (dosToques7d / total) >= 0.90 ? "green" : "red";
+
+      $("kpi48h").className = `kpi-value ${clase48}`;
+      $("kpi7d").className = `kpi-value ${clase7}`;
+
+      let notas = [];
+
+      if(total === 0){
+        notas.push(`<span class="muted">Todavía no hay leads en el filtro actual.</span>`);
+      } else {
+        if((contacto48 / total) < 0.90){
+          notas.push(`<span class="red">⚠️ El 1er contacto oportuno está por debajo del estándar esperado.</span>`);
+        }
+        if((dosToques7d / total) < 0.90){
+          notas.push(`<span class="red">⚠️ El 2do toque dentro de 7 días está por debajo del estándar esperado.</span>`);
+        }
+        if(notas.length === 0){
+          notas.push(`<span class="green">✅ El seguimiento del filtro actual se ve sano en tiempo de respuesta.</span>`);
+        }
+      }
+
+      $("kpiNotas").innerHTML = notas.join("<br>");
+    }
+
+    function badgeEtapa(etapa){
+      if(etapa === "Cobrado") return `<span class="pill pill-green">${etapa}</span>`;
+      if(etapa === "Perdido") return `<span class="pill pill-red">${etapa}</span>`;
+      if(etapa === "Orden" || etapa === "Factura") return `<span class="pill pill-yellow">${etapa}</span>`;
+      return `<span class="pill pill-blue">${etapa}</span>`;
+    }
+
+    function renderTabla(lista){
+      if(lista.length === 0){
+        $("tabla").innerHTML = `
+          <tr>
+            <th>No hay leads registrados para el filtro actual.</th>
+          </tr>
+        `;
+        return;
+      }
+
+      $("tabla").innerHTML = `
         <tr>
-        <td>${l.evento_nombre}</td>
-        <td>${l.nombre}</td>
-        <td>${l.cultivo}</td>
-        <td>${l.interes}</td>
-        <td>$${Number(l.ticket).toLocaleString()}</td>
-        <td>${l.fecha1 || "-"}</td>
-        <td>${l.fecha2 || "-"}</td>
-        <td><button class="delete" onclick="eliminar(${l.id})">🗑</button></td>
+          <th>Evento</th>
+          <th>Lead</th>
+          <th>Tipo</th>
+          <th>Etapa</th>
+          <th>Ticket</th>
+          <th>Responsable</th>
+          <th>1er toque</th>
+          <th>2do toque</th>
+          <th>Acciones</th>
         </tr>
-        `;
-    });
+        ${lista.slice().reverse().map(l => `
+          <tr>
+            <td>${l.evento_nombre}</td>
+            <td>
+              <strong>${l.nombre}</strong><br>
+              <span class="muted">${l.cultivo || "-"} | ${l.variedad || "-"}</span>
+            </td>
+            <td>${l.tipo_oportunidad}</td>
+            <td>${badgeEtapa(l.etapa_funnel)}</td>
+            <td>${money(l.ticket)}</td>
+            <td>${l.responsable || "-"}</td>
+            <td>${l.fecha1 || "-"}</td>
+            <td>${l.fecha2 || "-"}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="btn-warning" onclick="editarLead('${l.id}')">Editar</button>
+                <button type="button" class="btn-danger" onclick="eliminarLead('${l.id}')">Eliminar</button>
+              </div>
+            </td>
+          </tr>
+        `).join("")}
+      `;
+    }
 
-    calcularKPIs();
-}
+    function aplicarFiltros(){
+      const lista = obtenerLeadsFiltrados();
+      calcularKPIs(lista);
+      renderTabla(lista);
+    }
 
-// ===== ELIMINAR =====
-function eliminar(id){
+    function exportarExcel(){
+      const lista = obtenerLeadsFiltrados();
 
-    leads = leads.filter(l=>l.id != id);
-    localStorage.setItem("leads", JSON.stringify(leads));
+      if(lista.length === 0){
+        alert("No hay leads para exportar con el filtro actual.");
+        return;
+      }
 
-    render();
-}
-
-// ===== EXPORT =====
-function exportarExcel(){
-
-    let data = leads.map(l => ({
-
+      const data = lista.map(l => ({
+        "ID Lead": l.id,
+        "Fecha captura": l.fecha_captura,
+        "Fecha actualización": l.fecha_actualizacion,
         "Evento": l.evento_nombre,
+        "Tipo evento": l.evento_tipo,
+        "Cultivo evento": l.evento_cultivo,
+        "Zona evento": l.evento_zona,
         "Nombre": l.nombre,
         "Teléfono": l.telefono,
         "Correo": l.correo,
         "Cultivo": l.cultivo,
-
-        "Hectáreas": Number(l.hectareas).toLocaleString(),
-        "Variedad": l.variedad,
-        "Interés": l.interes,
-
-        "Ticket": Number(l.ticket).toLocaleString(),
-
+        "Hectáreas": l.hectareas,
+        "Variedad actual": l.variedad,
+        "Tipo oportunidad": l.tipo_oportunidad,
+        "Etapa funnel": l.etapa_funnel,
+        "Ticket estimado": l.ticket,
+        "Próximo paso": l.proximo,
         "Responsable": l.responsable,
         "Fecha 1er contacto": l.fecha1,
-        "Fecha 2do contacto": l.fecha2
+        "Fecha 2do contacto": l.fecha2,
+        "Motivo pérdida": l.motivo_perdida
+      }));
 
-    }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Leads");
+      XLSX.writeFile(wb, "Leads_Eventos_Galera.xlsx");
+    }
 
-    let ws = XLSX.utils.json_to_sheet(data);
-    let wb = XLSX.utils.book_new();
+    function init(){
+      cargarDatos();
+      cargarEventos();
+      if(eventosAprobados.length > 0){
+        $("evento").value = String(eventosAprobados[0].id);
+      }
+      aplicarFiltros();
+    }
 
-    XLSX.utils.book_append_sheet(wb, ws, "Leads");
-
-    XLSX.writeFile(wb, "Leads_Eventos.xlsx");
-}
-
-// ===== LIMPIAR =====
-function limpiar(){
-    document.querySelectorAll("input").forEach(i=>i.value="");
-}
-
-// ===== INIT =====
-cargarEventos();
-render();
-
-</script>
-
+    init();
+  </script>
 </body>
 </html>
